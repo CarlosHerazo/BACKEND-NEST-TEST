@@ -15,6 +15,22 @@
 
 ---
 
+## 🌐 API en Producción
+
+🚀 **URL Base:** [https://nest-back.testbydevelopment.space/api/v1](https://nest-back.testbydevelopment.space/api/v1)
+
+📚 **Documentación Interactiva:**
+- **Scalar UI:** [https://nest-back.testbydevelopment.space/api/reference](https://nest-back.testbydevelopment.space/api/reference)
+- **Swagger:** [https://nest-back.testbydevelopment.space/api/docs](https://nest-back.testbydevelopment.space/api/docs)
+
+📡 **Endpoints Principales:**
+- Productos: `GET /api/v1/products`
+- Clientes: `GET /api/v1/customers`
+- Pagos: `POST /api/v1/payments/process`
+- Tokenizar tarjeta: `POST /api/v1/wompi/tokenize-card`
+
+---
+
 ## ✨ Características
 
 - ✅ **CRUD Completo** de Productos, Clientes, Transacciones y Entregas
