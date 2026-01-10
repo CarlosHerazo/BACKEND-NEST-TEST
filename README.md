@@ -113,8 +113,7 @@ src/
 │   ├── customers/               # 👥 Gestión de clientes
 │   ├── transactions/            # 💰 Transacciones de pago
 │   ├── payments/                # 💳 Integración con Wompi
-│   ├── deliveries/              # 📦 Sistema de entregas
-│   └── webhooks/                # 🔔 Eventos de Wompi
+│   └── deliveries/              # 📦 Sistema de entregas
 │
 ├── shared/                      # 🛠️ Utilidades compartidas
 │   ├── domain/
@@ -400,14 +399,6 @@ POST /api/v1/customers
 | `GET` | `/api/v1/deliveries/:id` | Obtener entrega por ID |
 | `GET` | `/api/v1/deliveries/transaction/:transactionId` | Obtener entrega por transacción |
 
-### 🔔 Webhooks (Opcional)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `POST` | `/api/v1/webhooks/wompi` | Recibir eventos de Wompi (no requerido, estado se verifica directamente) |
-
-> **Nota:** El sistema actual verifica el estado del pago directamente con la API de Wompi usando reintentos automáticos, por lo que no es necesario configurar webhooks.
-
 ---
 
 ## ⚙️ Configuración
@@ -452,17 +443,6 @@ WOMPI_INTEGRITY_KEY=stagtest_integrity_xxxxx
 BASE_FEE=1000
 DELIVERY_FEE=5000
 ```
-
-### Configuración del Webhook en Wompi (Opcional)
-
-> **Nota:** La configuración de webhooks es **opcional**. El sistema verifica el estado del pago directamente con la API de Wompi usando reintentos automáticos.
-
-Si deseas configurar webhooks adicionales:
-
-1. Ve al [Dashboard de Wompi](https://comercios.wompi.co/)
-2. Navega a **Configuración → Webhooks**
-3. Agrega la URL: `https://tu-dominio.com/api/v1/webhooks/wompi`
-4. Selecciona los eventos: `transaction.updated`
 
 ---
 
