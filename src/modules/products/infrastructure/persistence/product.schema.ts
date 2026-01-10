@@ -31,6 +31,17 @@ export class ProductSchema {
   @Column({ type: 'int' })
   stock: number;
 
+  @Column({ length: 100 })
+  category: string;
+
+  @Column({
+    type: 'decimal',
+    precision: 3,
+    scale: 1,
+    default: 0,
+  })
+  rating: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -35,6 +35,8 @@ export class CreateProductUseCase {
           dto.imgUrl,
           dto.price,
           dto.stock,
+          dto.category,
+          dto.rating,
         );
         return this.productRepository.create(product);
     } catch (error) {

@@ -14,6 +14,8 @@ export class ProductMapper {
     schema.imgUrl = product.imgUrl;
     schema.price = product.price;
     schema.stock = product.stock;
+    schema.category = product.category;
+    schema.rating = product.rating;
     schema.createdAt = product.createdAt;
     schema.updatedAt = product.updatedAt;
 
@@ -31,6 +33,8 @@ export class ProductMapper {
       schema.imgUrl,
       Number(schema.price),
       schema.stock,
+      schema.category,
+      Number(schema.rating),
       schema.createdAt,
       schema.updatedAt,
     );

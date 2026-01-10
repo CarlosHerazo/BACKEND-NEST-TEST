@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -29,5 +30,15 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   stock: number;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  category: string;
+
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(5)
+  rating: number;
 
 }

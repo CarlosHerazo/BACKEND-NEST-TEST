@@ -42,6 +42,18 @@ export class ProductResponseDto {
   stock: number;
 
   @ApiProperty({
+    description: 'Product category',
+    example: 'Electronics',
+  })
+  category: string;
+
+  @ApiProperty({
+    description: 'Product rating (0-5)',
+    example: 4.5,
+  })
+  rating: number;
+
+  @ApiProperty({
     description: 'Creation timestamp',
     example: '2024-01-09T10:30:00Z',
   })
@@ -64,6 +76,8 @@ export class ProductResponseDto {
       imgUrl: product.imgUrl,
       price: product.price,
       stock: product.stock,
+      category: product.category,
+      rating: product.rating,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };

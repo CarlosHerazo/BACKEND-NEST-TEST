@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -57,5 +58,25 @@ export class UpdateProductDto {
   @IsInt()
   @Min(0)
   stock?: number;
+
+  @ApiPropertyOptional({
+    description: 'Product category',
+    example: 'Electronics',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  category?: string;
+
+  @ApiPropertyOptional({
+    description: 'Product rating (0-5)',
+    example: 4.5,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(5)
+  rating?: number;
 
 }
