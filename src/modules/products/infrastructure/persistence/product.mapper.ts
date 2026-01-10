@@ -33,8 +33,8 @@ export class ProductMapper {
       schema.imgUrl,
       Number(schema.price),
       schema.stock,
-      schema.category,
-      Number(schema.rating),
+      schema.category ?? null,
+      schema.rating ? Number(schema.rating) : null,
       schema.createdAt,
       schema.updatedAt,
     );

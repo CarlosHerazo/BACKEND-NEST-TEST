@@ -14,8 +14,8 @@ export class Product {
     public readonly imgUrl: string,
     public readonly price: number,
     public readonly stock: number,
-    public readonly category: string,
-    public readonly rating: number,
+    public readonly category: string | null,
+    public readonly rating: number | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}
@@ -30,8 +30,8 @@ export class Product {
     imgUrl: string,
     price: number,
     stock: number,
-    category: string,
-    rating: number,
+    category?: string | null,
+    rating?: number | null,
   ): Product {
     const now = new Date();
     return new Product(
@@ -41,8 +41,8 @@ export class Product {
       imgUrl,
       price,
       stock,
-      category,
-      rating,
+      category ?? null,
+      rating ?? null,
       now,
       now,
     );
@@ -59,8 +59,8 @@ export class Product {
       data.imgUrl ?? this.imgUrl,
       data.price ?? this.price,
       data.stock ?? this.stock,
-      data.category ?? this.category,
-      data.rating ?? this.rating,
+      data.category !== undefined ? data.category : this.category,
+      data.rating !== undefined ? data.rating : this.rating,
       this.createdAt,
       new Date(),
     );
@@ -74,8 +74,8 @@ export interface ProductUpdateData {
     imgUrl: string;
     price: number;
     stock: number;
-    category: string;
-    rating: number;
+    category: string | null;
+    rating: number | null;
 }
 
 export const PRODUCT_REPOSITORY = Symbol('IProductRepository');

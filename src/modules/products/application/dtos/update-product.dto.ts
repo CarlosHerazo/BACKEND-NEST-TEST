@@ -62,21 +62,23 @@ export class UpdateProductDto {
   @ApiPropertyOptional({
     description: 'Product category',
     example: 'Electronics',
+    nullable: true,
   })
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  category?: string;
+  category?: string | null;
 
   @ApiPropertyOptional({
     description: 'Product rating (0-5)',
     example: 4.5,
+    nullable: true,
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 1 })
   @Min(0)
   @Max(5)
-  rating?: number;
+  rating?: number | null;
 
 }

@@ -1,6 +1,7 @@
 import {
   IsInt,
   IsNumber,
+  IsOptional,
   IsString,
   IsUrl,
   Max,
@@ -31,14 +32,16 @@ export class CreateProductDto {
   @Min(0)
   stock: number;
 
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  category: string;
+  category?: string | null;
 
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 1 })
   @Min(0)
   @Max(5)
-  rating: number;
+  rating?: number | null;
 
 }

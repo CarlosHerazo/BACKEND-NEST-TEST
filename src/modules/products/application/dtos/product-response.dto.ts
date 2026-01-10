@@ -44,14 +44,16 @@ export class ProductResponseDto {
   @ApiProperty({
     description: 'Product category',
     example: 'Electronics',
+    nullable: true,
   })
-  category: string;
+  category: string | null;
 
   @ApiProperty({
     description: 'Product rating (0-5)',
     example: 4.5,
+    nullable: true,
   })
-  rating: number;
+  rating: number | null;
 
   @ApiProperty({
     description: 'Creation timestamp',
