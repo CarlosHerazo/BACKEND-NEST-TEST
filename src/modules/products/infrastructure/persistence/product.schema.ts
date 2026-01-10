@@ -31,14 +31,15 @@ export class ProductSchema {
   @Column({ type: 'int' })
   stock: number;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   category: string | null;
 
   @Column({
     type: 'decimal',
     precision: 3,
     scale: 1,
-    default: 0,
+    nullable: true,
+    default: null,
   })
   rating: number | null;
 
