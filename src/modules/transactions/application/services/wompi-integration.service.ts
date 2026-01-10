@@ -71,6 +71,8 @@ export class WompiIntegrationService {
     dto: CreateTransactionDto,
   ): Promise<{ wompiTransactionId: string; redirectUrl?: string; paymentLinkId?: string }> {
     try {
+      this.logger.log(`Starting Wompi transaction creation for reference: ${dto.reference}`);
+
       const paymentMethod: any = {
         type: dto.paymentMethod.type,
         installments: dto.paymentMethod.installments || 1,
@@ -95,6 +97,18 @@ export class WompiIntegrationService {
         payment_method: paymentMethod,
         reference: dto.reference,
       };
+
+      this.logger.debug(
+        `Wompi request (partial): ${JSON.stringify({
+          amount_in_cents: wompiRequest.amount_in_cents,
+          currency: wompiRequest.currency,
+          customer_email: wompiRequest.customer_email,
+          reference: wompiRequest.reference,
+          payment_method_type: wompiRequest.payment_method.type,
+          has_acceptance_token: !!wompiRequest.acceptance_token,
+          has_personal_auth: !!wompiRequest.accept_personal_auth,
+        }, null, 2)}`,
+      );
 
       if (dto.customerFullName || dto.customerPhoneNumber) {
         wompiRequest.customer_data = {
@@ -133,6 +147,18 @@ export class WompiIntegrationService {
         `Transaction created in Wompi: ${response.data.id} with status: ${response.data.status}`,
       );
 
+      // Log full response for debugging
+      this.logger.debug(
+        `Full Wompi response: ${JSON.stringify({
+          id: response.data.id,
+          status: response.data.status,
+          status_message: response.data.status_message,
+          payment_method_type: response.data.payment_method_type,
+          has_redirect_url: !!response.data.redirect_url,
+          has_payment_link_id: !!response.data.payment_link_id,
+        }, null, 2)}`,
+      );
+
       return {
         wompiTransactionId: response.data.id,
         redirectUrl: response.data.redirect_url ?? undefined,
@@ -140,6 +166,19 @@ export class WompiIntegrationService {
       };
     } catch (error) {
       this.logger.error(`Error creating transaction in Wompi: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
+
+      // Log error details if available
+      if (error.response) {
+        this.logger.error(
+          `Wompi API error response: ${JSON.stringify({
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+          }, null, 2)}`,
+        );
+      }
+
       throw error;
     }
   }

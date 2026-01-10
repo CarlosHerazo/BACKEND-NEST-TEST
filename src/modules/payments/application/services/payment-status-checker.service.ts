@@ -36,6 +36,10 @@ export class PaymentStatusCheckerService {
 
       const response = await this.wompiApiClient.checkPaymentStatus(paymentId);
 
+      this.logger.debug(
+        `Raw response from Wompi: ${JSON.stringify(response, null, 2)}`,
+      );
+
       if (response.success && response.data?.status) {
         const mappedStatus = this.mapProviderStatusToGeneric(
           response.data.status,
@@ -44,6 +48,21 @@ export class PaymentStatusCheckerService {
         this.logger.log(
           `Payment ${paymentId} status: ${response.data.status} -> ${mappedStatus}`,
         );
+
+        // Log additional payment details if status is ERROR or DECLINED
+        if (mappedStatus === PaymentStatus.ERROR || mappedStatus === PaymentStatus.DECLINED) {
+          this.logger.warn(
+            `Payment ${paymentId} failed. Status message: ${response.data.status_message || 'N/A'}`,
+          );
+          this.logger.warn(
+            `Payment error details: ${JSON.stringify({
+              status: response.data.status,
+              status_message: response.data.status_message,
+              payment_method_type: response.data.payment_method_type,
+              payment_method: response.data.payment_method,
+            }, null, 2)}`,
+          );
+        }
 
         return new PaymentStatusResponseDto(
           true,
@@ -54,19 +73,21 @@ export class PaymentStatusCheckerService {
       }
 
       this.logger.warn(
-        `Failed to retrieve payment status for ${paymentId}`,
+        `Failed to retrieve payment status for ${paymentId}. Response: ${JSON.stringify(response)}`,
       );
 
       return new PaymentStatusResponseDto(
         false,
         PaymentStatus.ERROR,
         paymentId,
-        '',
+        JSON.stringify(response),
       );
     } catch (error) {
       this.logger.error(
-        `Error checking payment status: ${error.message}`,
-        error.stack,
+        `Error checking payment status for ${paymentId}: ${error.message}`,
+      );
+      this.logger.error(
+        `Error stack: ${error.stack}`,
       );
 
       return new PaymentStatusResponseDto(

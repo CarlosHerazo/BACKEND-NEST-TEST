@@ -45,14 +45,42 @@ export class CreateTransactionUseCase {
         `Creating transaction ${transactionId} for customer ${dto.customerId}`,
       );
 
+      // Log transaction details
+      this.logger.debug(
+        `Transaction details: ${JSON.stringify({
+          id: transactionId,
+          customerId: dto.customerId,
+          email: dto.customerEmail,
+          amount: dto.amountInCents,
+          currency: dto.currency,
+          reference: dto.reference,
+          paymentMethod: dto.paymentMethod?.type,
+        }, null, 2)}`,
+      );
+
       const saveResult = await this.transactionRepository.create(transaction);
+      this.logger.log(
+        `Transaction ${transactionId} saved to repository with result: ${saveResult}.`,
+      );
 
       if (saveResult.isFailure) {
         return saveResult;
       }
 
       try {
+        this.logger.log(
+          `Sending transaction to Wompi: ${transactionId}`,
+        );
+
         const wompiResult = await this.wompiIntegrationService.createTransaction(dto);
+
+        this.logger.debug(
+          `Wompi result received: ${JSON.stringify({
+            wompiTransactionId: wompiResult.wompiTransactionId,
+            hasRedirectUrl: !!wompiResult.redirectUrl,
+            hasPaymentLinkId: !!wompiResult.paymentLinkId,
+          })}`,
+        );
 
         const updatedTransaction = transaction.updateStatus(
           transaction.status,
@@ -62,7 +90,9 @@ export class CreateTransactionUseCase {
         );
 
         const updateResult = await this.transactionRepository.update(updatedTransaction);
-
+        this.logger.log(
+          `Wompi update for transaction ${updateResult}.`,
+        );
         if (updateResult.isSuccess) {
           this.logger.log(
             `Transaction ${transactionId} created successfully with Wompi ID: ${wompiResult.wompiTransactionId}`,
@@ -72,8 +102,23 @@ export class CreateTransactionUseCase {
         return updateResult;
       } catch (wompiError) {
         this.logger.error(
-          `Error creating transaction in Wompi: ${wompiError.message}`,
+          `Error creating transaction in Wompi for ${transactionId}`,
         );
+        this.logger.error(
+          `Wompi error message: ${wompiError.message}`,
+        );
+        this.logger.error(
+          `Wompi error stack: ${wompiError.stack}`,
+        );
+        this.logger.error(
+          `Transaction data that failed: ${JSON.stringify({
+            id: transactionId,
+            reference: dto.reference,
+            amount: dto.amountInCents,
+            email: dto.customerEmail,
+          })}`,
+        );
+
         return Result.fail(
           new Error(`Failed to create transaction in Wompi: ${wompiError.message}`),
         );

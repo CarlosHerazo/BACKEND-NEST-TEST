@@ -72,18 +72,55 @@ export class WompiApiClient {
       this.logger.log(
         `Creating transaction in Wompi for reference: ${request.reference}`,
       );
+
+      // Log the request payload (without sensitive data)
+      this.logger.debug(
+        `Transaction request payload: ${JSON.stringify({
+          reference: request.reference,
+          amount_in_cents: request.amount_in_cents,
+          currency: request.currency,
+          customer_email: request.customer_email,
+          payment_method: request.payment_method,
+          redirect_url: request.redirect_url,
+        }, null, 2)}`,
+      );
+
       const response = await this.axiosInstance.post<WompiTransactionResponse>(
         '/transactions',
         request,
       );
+
       this.logger.log(
         `Transaction created successfully: ${response.data.data.id}`,
       );
+
+      // Log transaction details
+      this.logger.debug(
+        `Transaction details: Status=${response.data.data.status}, ID=${response.data.data.id}`,
+      );
+
       return response.data;
     } catch (error) {
       this.logger.error(
-        `Failed to create transaction: ${JSON.stringify(error.response?.data)}`,
+        `Failed to create transaction for reference: ${request.reference}`,
       );
+      this.logger.error(
+        `HTTP Status: ${error.response?.status || 'N/A'}`,
+      );
+      this.logger.error(
+        `Error Response: ${JSON.stringify(error.response?.data, null, 2)}`,
+      );
+      this.logger.error(
+        `Error Message: ${error.message}`,
+      );
+      this.logger.error(
+        `Request that failed: ${JSON.stringify({
+          reference: request.reference,
+          amount: request.amount_in_cents,
+          email: request.customer_email,
+        })}`,
+      );
+
       throw new Error(
         `Failed to create transaction in Wompi: ${error.response?.data?.error?.reason || error.message}`,
       );
@@ -153,6 +190,11 @@ export class WompiApiClient {
         `Payment status retrieved: ${response.data.data.status}`,
       );
 
+      // Log complete response for debugging
+      this.logger.debug(
+        `Full payment status response: ${JSON.stringify(response.data.data, null, 2)}`,
+      );
+
       return {
         success: true,
         status: response.data.data.status,
@@ -160,12 +202,22 @@ export class WompiApiClient {
       };
     } catch (error) {
       this.logger.error(
-        `Failed to check payment status: ${JSON.stringify(error.response?.data)}`,
+        `Failed to check payment status for ${transactionId}`,
       );
+      this.logger.error(
+        `HTTP Status: ${error.response?.status || 'N/A'}`,
+      );
+      this.logger.error(
+        `Error Response: ${JSON.stringify(error.response?.data, null, 2)}`,
+      );
+      this.logger.error(
+        `Error Message: ${error.message}`,
+      );
+
       return {
         success: false,
         status: 'ERROR',
-        data: null,
+        data: error.response?.data || null,
       };
     }
   }

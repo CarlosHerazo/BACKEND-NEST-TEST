@@ -266,6 +266,16 @@ export class PaymentController {
               `Payment status retrieved: ${statusCheck.status}`,
             );
 
+            // Log detailed status information
+            this.logger.debug(
+              `Status check details: ${JSON.stringify({
+                success: statusCheck.success,
+                status: statusCheck.status,
+                paymentId: statusCheck.paymentId,
+                hasRawData: !!statusCheck.rawData,
+              })}`,
+            );
+
             // Map PaymentStatus to TransactionStatus
             const transactionStatus = this.mapPaymentStatusToTransactionStatus(
               statusCheck.status,
@@ -287,6 +297,11 @@ export class PaymentController {
               finalTransaction = updateResult.getValue();
               this.logger.log(
                 `Transaction status updated to: ${transactionStatus}`,
+              );
+
+              // Log update details
+              this.logger.debug(
+                `Transaction update: ID=${finalTransaction.id}, Status=${finalTransaction.status}, WompiID=${finalTransaction.wompiTransactionId}`,
               );
 
               // 5.5. Auto-create delivery if payment is approved
@@ -318,6 +333,9 @@ export class PaymentController {
           // Log error but don't fail the response
           this.logger.warn(
             `Could not check payment status: ${statusError.message}`,
+          );
+          this.logger.warn(
+            `Status error stack: ${statusError.stack}`,
           );
         }
       }
