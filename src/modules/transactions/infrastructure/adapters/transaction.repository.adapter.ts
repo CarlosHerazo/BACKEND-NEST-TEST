@@ -115,6 +115,33 @@ export class TransactionRepositoryAdapter implements ITransactionRepository {
     }
   }
 
+  async findByCustomerEmail(
+    customerEmail: string,
+  ): Promise<Result<Transaction[], Error>> {
+    try {
+      this.logger.log(`Finding transactions for email: ${customerEmail}`);
+      const schemas = await this.repository.find({
+        where: { customerEmail },
+        order: { createdAt: 'DESC' },
+      });
+
+      this.logger.log(`Found ${schemas.length} transactions for email: ${customerEmail}`);
+
+      const domains = schemas.map((schema) =>
+        TransactionMapper.toDomain(schema),
+      );
+      return Result.ok(domains);
+    } catch (error) {
+      this.logger.error(
+        `Error finding transactions by customer email: ${error.message}`,
+        error.stack,
+      );
+      return Result.fail(
+        new Error(`Failed to find transactions: ${error.message}`),
+      );
+    }
+  }
+
   async update(transaction: Transaction): Promise<Result<Transaction, Error>> {
     try {
       const schema = TransactionMapper.toSchema(transaction);

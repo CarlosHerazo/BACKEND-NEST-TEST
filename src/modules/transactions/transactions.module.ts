@@ -9,6 +9,7 @@ import { TRANSACTION_REPOSITORY } from './domain/ports/transaction.repository.po
 import { CreateTransactionUseCase } from './application/use-cases/create-transaction.use-case';
 import { GetTransactionByIdUseCase } from './application/use-cases/get-transaction-by-id.use-case';
 import { UpdateTransactionStatusUseCase } from './application/use-cases/update-transaction-status.use-case';
+import { GetTransactionsByEmailUseCase } from './application/use-cases/get-transactions-by-email.use-case';
 import { WompiApiClient } from './infrastructure/clients/wompi-api.client';
 import { WompiIntegrationService } from './application/services/wompi-integration.service';
 
@@ -25,6 +26,7 @@ import { WompiIntegrationService } from './application/services/wompi-integratio
     CreateTransactionUseCase,
     GetTransactionByIdUseCase,
     UpdateTransactionStatusUseCase,
+    GetTransactionsByEmailUseCase,
   ],
   exports: [
     TRANSACTION_REPOSITORY,

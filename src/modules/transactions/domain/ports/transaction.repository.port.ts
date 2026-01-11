@@ -7,6 +7,7 @@ export interface ITransactionRepository {
   findByReference(reference: string): Promise<Result<Transaction, Error>>;
   findAll(): Promise<Result<Transaction[], Error>>;
   findByCustomerId(customerId: string): Promise<Result<Transaction[], Error>>;
+  findByCustomerEmail(customerEmail: string): Promise<Result<Transaction[], Error>>;
   update(transaction: Transaction): Promise<Result<Transaction, Error>>;
   existsById(id: string): Promise<Result<boolean, Error>>;
 }

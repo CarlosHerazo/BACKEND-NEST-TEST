@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { GetTransactionByIdUseCase } from '../../application/use-cases/get-transaction-by-id.use-case';
 import { UpdateTransactionStatusUseCase } from '../../application/use-cases/update-transaction-status.use-case';
+import { GetTransactionsByEmailUseCase } from '../../application/use-cases/get-transactions-by-email.use-case';
 import { UpdateTransactionDto } from '../../application/dtos/update-transaction.dto';
 import { TransactionResponseDto } from '../../application/dtos/transaction-response.dto';
 
@@ -28,6 +29,7 @@ export class TransactionController {
   constructor(
     private readonly getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private readonly updateTransactionStatusUseCase: UpdateTransactionStatusUseCase,
+    private readonly getTransactionsByEmailUseCase: GetTransactionsByEmailUseCase,
   ) {}
 
   @Get(':id')
@@ -98,6 +100,37 @@ export class TransactionController {
           throw new NotFoundException(error.message);
         }
         throw new BadRequestException(error.message);
+      },
+    );
+  }
+
+  @Get('email/:email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get transactions by customer email',
+    description: 'Retrieves all transactions for a specific customer email',
+  })
+  @ApiParam({
+    name: 'email',
+    description: 'Customer email address',
+    example: 'customer@example.com',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Transactions found',
+    type: [TransactionResponseDto],
+  })
+  async getTransactionsByEmail(
+    @Param('email') email: string,
+  ): Promise<TransactionResponseDto[]> {
+    const result = await this.getTransactionsByEmailUseCase.execute(email);
+
+    return result.match(
+      (transactions) => transactions.map((transaction) =>
+        TransactionResponseDto.fromEntity(transaction)
+      ),
+      (error) => {
+        throw new NotFoundException(error.message);
       },
     );
   }
