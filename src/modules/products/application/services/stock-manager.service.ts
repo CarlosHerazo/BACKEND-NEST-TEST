@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { PRODUCT_REPOSITORY } from '../../domain/ports/product.repository.port';
-import type { IProductRepository } from '../../domain/ports/product.repository.port';
+import { PRODUCT_REPOSITORY} from '../../domain/entities/product.entity';
 import { Result } from '../../../../shared/domain/result';
+import type { IProductRepository } from '../../domain/ports/product.repository.port';
 
 export interface ProductStockItem {
   productId: string;
@@ -18,31 +18,31 @@ export class StockManagerService {
   ) {}
 
   /**
-   * Deduct stock for multiple products
-   * Returns Result with success or error if any product fails
+   * Stock para multiple productos
+   * Retorna resultado exitoso o error si falla alguna validación o actualización
    */
   async deductStock(items: ProductStockItem[]): Promise<Result<void, Error>> {
     this.logger.log(`Deducting stock for ${items.length} products`);
 
     try {
-      // 1. Validate all products exist and have sufficient stock
+      // 1.Valida si los productos existen y tienen stock suficiente
       const validationResults = await Promise.all(
         items.map(item => this.validateProductStock(item)),
       );
 
-      // Check if any validation failed
+      // Verifica si alguna validación falló
       for (const result of validationResults) {
         if (result.isFailure) {
           return Result.fail(result.getError());
         }
       }
 
-      // 2. Deduct stock for all products
+      // 2. Deduce el stock de cada producto
       const deductionResults = await Promise.all(
         items.map(item => this.deductProductStock(item)),
       );
 
-      // Check if any deduction failed
+      // Verifica si alguna deducción falló
       for (const result of deductionResults) {
         if (result.isFailure) {
           return Result.fail(result.getError());
@@ -58,7 +58,7 @@ export class StockManagerService {
   }
 
   /**
-   * Validate that a product exists and has sufficient stock
+   * Valida el stock de un solo producto
    */
   private async validateProductStock(
     item: ProductStockItem,
@@ -87,7 +87,7 @@ export class StockManagerService {
   }
 
   /**
-   * Deduct stock from a single product
+   * Deduce el stock de un solo producto
    */
   private async deductProductStock(
     item: ProductStockItem,
@@ -116,7 +116,7 @@ export class StockManagerService {
   }
 
   /**
-   * Restore stock for products (e.g., when payment fails)
+   * Restaura el stock para múltiples productos
    */
   async restoreStock(items: ProductStockItem[]): Promise<Result<void, Error>> {
     this.logger.log(`Restoring stock for ${items.length} products`);
@@ -126,7 +126,7 @@ export class StockManagerService {
         items.map(item => this.restoreProductStock(item)),
       );
 
-      // Check if any restoration failed
+      // Verifica si alguna restauración falló
       for (const result of restoreResults) {
         if (result.isFailure) {
           return Result.fail(result.getError());
@@ -142,7 +142,7 @@ export class StockManagerService {
   }
 
   /**
-   * Restore stock to a single product
+   * Restaura el stock de un solo producto
    */
   private async restoreProductStock(
     item: ProductStockItem,

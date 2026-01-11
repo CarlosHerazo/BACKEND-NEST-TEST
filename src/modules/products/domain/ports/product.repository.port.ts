@@ -9,3 +9,4 @@ export interface IProductRepository {
   findAll(): Promise<Result<Product[], Error>>;
   update(product: Product): Promise<Result<Product, Error>>;
 }
+
