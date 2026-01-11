@@ -212,12 +212,28 @@ export class PaymentController {
       // 2. Generar referencia única para la transacción
       const reference = `ORDER-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
-      // 3. Crear el DTO de transacción completo
+      // 3. Redondear el monto para eliminar centavos (COP no soporta decimales)
+      // Wompi requiere que los montos en COP sean múltiplos de 100 (sin centavos)
+      const currency = paymentDto.currency || 'COP';
+      let adjustedAmount = paymentDto.amountInCents;
+
+      if (currency === 'COP') {
+        // Redondear al múltiplo de 100 más cercano (eliminar centavos)
+        adjustedAmount = Math.round(paymentDto.amountInCents / 100) * 100;
+
+        if (adjustedAmount !== paymentDto.amountInCents) {
+          this.logger.warn(
+            `Amount adjusted from ${paymentDto.amountInCents} to ${adjustedAmount} to remove cents (COP doesn't support decimal amounts)`,
+          );
+        }
+      }
+
+      // 4. Crear el DTO de transacción completo
       const createTransactionDto = {
         customerId: paymentDto.customerId,
         customerEmail: paymentDto.customerEmail,
-        amountInCents: paymentDto.amountInCents,
-        currency: paymentDto.currency || 'COP',
+        amountInCents: adjustedAmount,
+        currency: currency,
         reference,
         paymentMethod: paymentDto.paymentMethod,
         acceptanceToken,
@@ -228,7 +244,7 @@ export class PaymentController {
         metadata: paymentDto.metadata,
       };
 
-      // 4. Crear transacción (esto también la procesa con Wompi)
+      // 5. Crear transacción (esto también la procesa con Wompi)
       const result =
         await this.createTransactionUseCase.execute(createTransactionDto);
 
@@ -246,7 +262,7 @@ export class PaymentController {
         `Payment processed successfully. Transaction ID: ${transaction.id}, Wompi ID: ${transaction.wompiTransactionId}`,
       );
 
-      // 5. Check payment status immediately (no esperar por webhook)
+      // 6. Check payment status immediately (no esperar por webhook)
       let finalTransaction = transaction;
       if (transaction.wompiTransactionId) {
         try {
@@ -304,7 +320,7 @@ export class PaymentController {
                 `Transaction update: ID=${finalTransaction.id}, Status=${finalTransaction.status}, WompiID=${finalTransaction.wompiTransactionId}`,
               );
 
-              // 5.5. Auto-create delivery if payment is approved
+              // 6.5. Auto-create delivery if payment is approved
               if (transactionStatus === TransactionStatus.APPROVED) {
                 this.logger.log(
                   `Payment approved, creating delivery for transaction ${finalTransaction.id}`,
@@ -340,7 +356,7 @@ export class PaymentController {
         }
       }
 
-      // 6. Construir respuesta
+      // 7. Construir respuesta
       const response: PaymentResponseDto = {
         transactionId: finalTransaction.id,
         wompiTransactionId: finalTransaction.wompiTransactionId || '',

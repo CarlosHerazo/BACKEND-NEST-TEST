@@ -35,8 +35,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
-  // Global prefix
-  app.setGlobalPrefix(apiPrefix);
+  // Global prefix (excluding documentation routes)
+  app.setGlobalPrefix(apiPrefix, {
+    exclude: ['api/docs', 'api/docs/(.*)', 'api/reference'],
+  });
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -74,8 +76,12 @@ async function bootstrap() {
     }),
   );
 
+  // API Reference via Swagger UI
+  SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(port);
   logger.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
   logger.log(`API Reference (Scalar): http://localhost:${port}/api/reference`);
+  logger.log(`API Docs (Swagger UI): http://localhost:${port}/api/docs`);
 }
 bootstrap();
