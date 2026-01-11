@@ -8,9 +8,29 @@ import {
   IsInt,
   Min,
   IsEnum,
+  IsArray,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+class ProductItemDto {
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Product ID',
+  })
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Quantity to purchase',
+  })
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
 
 class PaymentMethodDto {
   @ApiProperty({
@@ -160,4 +180,18 @@ export class ProcessPaymentDto {
   })
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @ApiProperty({
+    type: [ProductItemDto],
+    description: 'Products to purchase (stock will be deducted)',
+    example: [
+      { productId: '550e8400-e29b-41d4-a716-446655440000', quantity: 2 },
+      { productId: '660e8400-e29b-41d4-a716-446655440001', quantity: 1 }
+    ],
+  })
+  @ValidateNested({ each: true })
+  @Type(() => ProductItemDto)
+  @IsArray()
+  @ArrayMinSize(1)
+  products: ProductItemDto[];
 }

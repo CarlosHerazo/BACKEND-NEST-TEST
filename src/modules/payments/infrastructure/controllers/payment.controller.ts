@@ -15,9 +15,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBadRequestResponse,
-  ApiProperty,
 } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
 import { WompiIntegrationService } from '../../../transactions/application/services/wompi-integration.service';
 import { WompiApiClient } from '../../../transactions/infrastructure/clients/wompi-api.client';
 import { CreateTransactionUseCase } from '../../../transactions/application/use-cases/create-transaction.use-case';
@@ -31,48 +29,7 @@ import {
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
 import { AutoDeliveryService } from '../../../deliveries/application/services/auto-delivery.service';
-
-class TokenizeCardDto {
-  @ApiProperty({
-    description: 'Card number',
-    example: '4242424242424242',
-  })
-  @IsNotEmpty()
-  @IsString()
-  number: string;
-
-  @ApiProperty({
-    description: 'Card CVC',
-    example: '123',
-  })
-  @IsNotEmpty()
-  @IsString()
-  cvc: string;
-
-  @ApiProperty({
-    description: 'Expiration month (MM)',
-    example: '12',
-  })
-  @IsNotEmpty()
-  @IsString()
-  exp_month: string;
-
-  @ApiProperty({
-    description: 'Expiration year (YY)',
-    example: '28',
-  })
-  @IsNotEmpty()
-  @IsString()
-  exp_year: string;
-
-  @ApiProperty({
-    description: 'Card holder name',
-    example: 'Juan Perez',
-  })
-  @IsNotEmpty()
-  @IsString()
-  card_holder: string;
-}
+import { StockManagerService } from '../../../products/application/services/stock-manager.service';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -84,6 +41,7 @@ export class PaymentController {
     private readonly createTransactionUseCase: CreateTransactionUseCase,
     private readonly paymentStatusChecker: PaymentStatusCheckerService,
     private readonly autoDeliveryService: AutoDeliveryService,
+    private readonly stockManagerService: StockManagerService,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
   ) {}
@@ -139,44 +97,50 @@ export class PaymentController {
   @Post('tokenize')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Tokenize credit card with Wompi',
+    summary: 'Get Wompi tokenization information',
     description:
-      'Tokenizes a credit card using Wompi. Returns information needed for frontend tokenization.',
+      '⚠️ IMPORTANT: Card tokenization MUST be done from the frontend directly. This endpoint only provides the public key and instructions. Never send card data to the backend.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Card tokenization information provided',
+    description: 'Tokenization information provided (for frontend use only)',
     schema: {
       type: 'object',
       properties: {
         message: {
           type: 'string',
-          example: 'Card tokenization process started',
+          example: 'Tokenize cards directly from your frontend',
         },
         instructions: {
           type: 'string',
           example:
-            'Use Wompi.js library on the frontend to tokenize cards securely',
+            'SECURITY: Tokenize from frontend using Wompi API directly. Never send card data to backend.',
         },
         wompiPublicKey: {
           type: 'string',
           example: 'pub_stagtest_g2u0HQd3ZMh05hsSgTS2lUV8t3s4mG',
         },
+        tokenizationUrl: {
+          type: 'string',
+          example: 'https://production.wompi.co/v1/tokens/cards',
+        },
       },
     },
   })
-  async tokenizeCard(): Promise<{
+  async getTokenizationInfo(): Promise<{
     message: string;
     instructions: string;
     wompiPublicKey: string;
+    tokenizationUrl: string;
   }> {
-    // Card tokenization debe hacerse en el frontend usando Wompi.js
-    // Este endpoint solo provee la información necesaria
+    // SECURITY: Card tokenization MUST be done in the frontend
+    // This endpoint only provides the necessary information
     return {
-      message: 'Card tokenization process started',
+      message: 'Tokenize cards directly from your frontend',
       instructions:
-        'Use Wompi.js library on the frontend to tokenize cards securely. Visit https://docs.wompi.co/docs/en/widgets-checkout for more information.',
+        'SECURITY: Call Wompi API directly from frontend (POST https://production.wompi.co/v1/tokens/cards) with card data and public key. Then send only the token to backend /payments/process endpoint. Never send raw card data to backend.',
       wompiPublicKey: process.env.WOMPI_PUBLIC_KEY || '',
+      tokenizationUrl: 'https://production.wompi.co/v1/tokens/cards',
     };
   }
 
@@ -320,12 +284,39 @@ export class PaymentController {
                 `Transaction update: ID=${finalTransaction.id}, Status=${finalTransaction.status}, WompiID=${finalTransaction.wompiTransactionId}`,
               );
 
-              // 6.5. Auto-create delivery if payment is approved
+              // 6.5. Deduct stock and create delivery if payment is approved
               if (transactionStatus === TransactionStatus.APPROVED) {
                 this.logger.log(
-                  `Payment approved, creating delivery for transaction ${finalTransaction.id}`,
+                  `Payment approved, deducting stock and creating delivery for transaction ${finalTransaction.id}`,
                 );
 
+                // 6.5.1. Deduct stock for purchased products
+                try {
+                  const stockItems = paymentDto.products.map(p => ({
+                    productId: p.productId,
+                    quantity: p.quantity,
+                  }));
+
+                  const stockResult = await this.stockManagerService.deductStock(stockItems);
+
+                  if (stockResult.isFailure) {
+                    this.logger.error(
+                      `Failed to deduct stock: ${stockResult.getError().message}`,
+                    );
+                    // Note: Payment is already approved, log error but don't fail
+                    // In production, you might want to trigger a compensating transaction
+                  } else {
+                    this.logger.log(
+                      `Stock deducted successfully for ${stockItems.length} products`,
+                    );
+                  }
+                } catch (stockError) {
+                  this.logger.error(
+                    `Error deducting stock for transaction ${finalTransaction.id}: ${stockError.message}`,
+                  );
+                }
+
+                // 6.5.2. Create delivery
                 try {
                   const deliveryId = await this.autoDeliveryService.createDeliveryForTransaction(
                     finalTransaction,

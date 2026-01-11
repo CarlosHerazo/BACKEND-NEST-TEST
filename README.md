@@ -27,16 +27,17 @@
 - Productos: `GET /api/v1/products`
 - Clientes: `GET /api/v1/customers`
 - Pagos: `POST /api/v1/payments/process`
-- Tokenizar tarjeta: `POST /api/v1/wompi/tokenize-card`
+- Info de tokenización: `POST /api/v1/payments/tokenize` (⚠️ La tokenización se hace desde el frontend)
 
 ---
 
 ## ✨ Características
 
 - ✅ **CRUD Completo** de Productos, Clientes, Transacciones y Entregas
-- 💳 **Integración con Wompi** para procesar pagos con tarjetas
+- 💳 **Integración con Wompi** para procesar pagos con tarjetas (tokenización segura desde frontend)
 - 🔄 **Sistema de Reintentos Inteligente** con backoff exponencial para verificación de pagos
-- 📦 **Creación Automática de Entregas** cuando un pago es aprobado
+- 📦 **Gestión Automática de Inventario** - descuento de stock cuando un pago es aprobado
+- 🚚 **Creación Automática de Entregas** cuando un pago es aprobado
 - 📖 **Documentación Automática** con Swagger y Scalar UI
 - 🐳 **Docker Ready** con PostgreSQL incluido
 - 🏗️ **Arquitectura Hexagonal** (Clean Architecture)
@@ -156,78 +157,96 @@ src/
 ### Diagrama de Secuencia
 
 ```
-┌─────────┐      ┌─────────┐      ┌────────────┐      ┌───────┐
-│ Cliente │      │   API   │      │ Wompi API  │      │  DB   │
-└────┬────┘      └────┬────┘      └─────┬──────┘      └───┬───┘
-     │                │                  │                 │
-     │ 1. POST /wompi/tokenize-card      │                 │
-     ├───────────────>│                  │                 │
-     │                │ Tokenizar tarjeta│                 │
-     │                ├─────────────────>│                 │
-     │                │<─────────────────┤                 │
-     │<───────────────┤ {token}          │                 │
-     │                │                  │                 │
-     │ 2. POST /payments/process         │                 │
-     │    (con card token)               │                 │
-     ├───────────────>│                  │                 │
-     │                │                  │                 │
-     │                │ Obtener acceptance token           │
-     │                ├─────────────────>│                 │
-     │                │<─────────────────┤                 │
-     │                │                  │                 │
-     │                │ Crear Transaction│                 │
-     │                ├─────────────────────────────────> │
-     │                │                  │                 │
-     │                │ Crear pago en Wompi                │
-     │                │ (con acceptance + card token)      │
-     │                ├─────────────────>│                 │
-     │                │<─────────────────┤                 │
-     │                │ {id, status}     │                 │
-     │                │                  │                 │
-     │                │ 🔄 Verificar estado (max 5 intentos)│
-     │                │ ⏱️  2s → 4s → 8s → 16s → 32s      │
-     │                ├─────────────────>│                 │
-     │                │ GET /status      │                 │
-     │                │<─────────────────┤                 │
-     │                │ {status: APPROVED}                 │
-     │                │                  │                 │
-     │                │ Actualizar Transaction             │
-     │                ├─────────────────────────────────> │
-     │                │                  │                 │
-     │                │ ✅ Si APPROVED:  │                 │
-     │                │ Crear Delivery   │                 │
-     │                ├─────────────────────────────────> │
-     │                │                  │                 │
-     │<───────────────┤                  │                 │
-     │  {transaction, delivery, status}  │                 │
-     │                │                  │                 │
+┌──────────┐      ┌─────────┐      ┌────────────┐      ┌───────┐
+│ Frontend │      │   API   │      │ Wompi API  │      │  DB   │
+└────┬─────┘      └────┬────┘      └─────┬──────┘      └───┬───┘
+     │                 │                  │                 │
+     │ 1. Tokenizar tarjeta DIRECTAMENTE desde Frontend    │
+     │                 │                  │                 │
+     │ POST https://production.wompi.co/v1/tokens/cards    │
+     ├──────────────────────────────────>│                 │
+     │                 │                  │                 │
+     │<───────────────────────────────────┤                 │
+     │ {token: "tok_prod_xxx"}            │                 │
+     │                 │                  │                 │
+     │ 2. POST /payments/process          │                 │
+     │    (con card token generado)       │                 │
+     ├────────────────>│                  │                 │
+     │                 │                  │                 │
+     │                 │ Obtener acceptance token           │
+     │                 ├─────────────────>│                 │
+     │                 │<─────────────────┤                 │
+     │                 │                  │                 │
+     │                 │ Crear Transaction│                 │
+     │                 ├─────────────────────────────────> │
+     │                 │                  │                 │
+     │                 │ Crear pago en Wompi                │
+     │                 │ (con acceptance + card token)      │
+     │                 ├─────────────────>│                 │
+     │                 │<─────────────────┤                 │
+     │                 │ {id, status}     │                 │
+     │                 │                  │                 │
+     │                 │ 🔄 Verificar estado (max 5 intentos)│
+     │                 │ ⏱️  2s → 4s → 8s → 16s → 32s      │
+     │                 ├─────────────────>│                 │
+     │                 │ GET /status      │                 │
+     │                 │<─────────────────┤                 │
+     │                 │ {status: APPROVED}                 │
+     │                 │                  │                 │
+     │                 │ Actualizar Transaction             │
+     │                 ├─────────────────────────────────> │
+     │                 │                  │                 │
+     │                 │ ✅ Si APPROVED:  │                 │
+     │                 │ Crear Delivery   │                 │
+     │                 ├─────────────────────────────────> │
+     │                 │                  │                 │
+     │<────────────────┤                  │                 │
+     │  {transaction, delivery, status}   │                 │
+     │                 │                  │                 │
+
+⚠️  IMPORTANTE: La tokenización de tarjetas se hace DIRECTAMENTE desde el frontend
+    llamando a la API de Wompi. NUNCA envíes datos de tarjeta al backend.
 ```
 
 ### Paso a Paso Detallado
 
-#### 💳 **Paso 1: Tokenizar Tarjeta**
+#### 💳 **Paso 1: Tokenizar Tarjeta (DESDE EL FRONTEND)**
 
-El cliente tokeniza su tarjeta de crédito a través del endpoint que internamente usa la API de Wompi:
+> ⚠️ **IMPORTANTE:** La tokenización de tarjetas debe hacerse **DIRECTAMENTE desde el frontend** llamando a la API de Wompi. **NUNCA envíes datos de tarjeta al backend** por razones de seguridad y cumplimiento PCI DSS.
 
-```bash
-POST http://localhost:3000/api/v1/wompi/tokenize-card
-Content-Type: application/json
+**Desde tu frontend (JavaScript/React/Vue/etc):**
 
-{
-  "number": "4242424242424242",
-  "cvc": "123",
-  "exp_month": "12",
-  "exp_year": "2028",
-  "card_holder": "Juan Perez"
-}
+```javascript
+// Obtener la clave pública desde tu backend
+const response = await fetch('http://localhost:3000/api/v1/payments/tokenize');
+const { wompiPublicKey, tokenizationUrl } = await response.json();
+
+// Tokenizar la tarjeta DIRECTAMENTE con Wompi desde el frontend
+const tokenResponse = await fetch(tokenizationUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${wompiPublicKey}` // Tu clave pública
+  },
+  body: JSON.stringify({
+    number: '4242424242424242',
+    cvc: '123',
+    exp_month: '12',
+    exp_year: '28',
+    card_holder: 'Juan Perez'
+  })
+});
+
+const tokenData = await tokenResponse.json();
+console.log('Token generado:', tokenData.data.id);
 ```
 
-**Respuesta:**
+**Respuesta de Wompi:**
 ```json
 {
   "status": "CREATED",
   "data": {
-    "id": "tok_stagtest_22907_4e4ffcC38Cc4ef4ccacC83C384Cf3C44",
+    "id": "tok_prod_22907_4e4ffcC38Cc4ef4ccacC83C384Cf3C44",
     "created_at": "2024-01-10T12:00:00.000Z",
     "brand": "VISA",
     "name": "VISA-4242",
@@ -241,44 +260,69 @@ Content-Type: application/json
 }
 ```
 
-> **Nota:** Este token expira en 15 minutos, úsalo inmediatamente en el siguiente paso.
+> **Nota:**
+> - Este token expira en 15 minutos, úsalo inmediatamente en el siguiente paso
+> - Los datos de la tarjeta **NUNCA** pasan por tu backend
+> - Solo el token generado se enviará a tu backend para procesar el pago
 
-#### 🚀 **Paso 2: Procesar el Pago**
+#### 🚀 **Paso 2: Procesar el Pago (DESDE TU BACKEND)**
 
-Ahora el cliente envía el token de la tarjeta junto con los datos del pago. **El endpoint `/payments/process` hace todo automáticamente:**
+Ahora el frontend envía el **token generado** (NO los datos de tarjeta) a tu backend junto con los datos del pago. **El endpoint `/payments/process` hace todo automáticamente:**
 - ✅ Obtiene el acceptance token de Wompi
-- ✅ Crea la transacción en Wompi
+- ✅ Crea la transacción en Wompi usando el token
 - ✅ Verifica el estado con reintentos automáticos
 - ✅ Actualiza la transacción en la BD
 - ✅ Crea la entrega si el pago es aprobado
 
-```bash
-POST http://localhost:3000/api/v1/payments/process
-Content-Type: application/json
+**Desde tu frontend:**
 
-{
-  "amountInCents": 50000,
-  "currency": "COP",
-  "customerEmail": "juan@example.com",
-  "paymentMethod": {
-    "type": "CARD",
-    "token": "tok_stagtest_22907_4e4ffcC38Cc4ef4ccacC83C384Cf3C44",
-    "installments": 1
+```javascript
+// Procesar el pago enviando SOLO el token (no los datos de tarjeta)
+const paymentResponse = await fetch('http://localhost:3000/api/v1/payments/process', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
   },
-  "customerData": {
-    "phoneNumber": "+573001234567",
-    "fullName": "Juan Perez"
-  },
-  "shippingAddress": {
-    "addressLine1": "Calle 123 #45-67",
-    "city": "Bogotá",
-    "region": "Cundinamarca",
-    "country": "CO"
-  }
-}
+  body: JSON.stringify({
+    customerId: '312ba225-0ed6-4cab-93a1-d182ee95e8a4',
+    amountInCents: 50000,
+    currency: 'COP',
+    customerEmail: 'juan@example.com',
+    customerFullName: 'Juan Perez',
+    customerPhoneNumber: '+573001234567',
+    paymentMethod: {
+      type: 'CARD',
+      token: tokenData.data.id, // Token generado en el paso 1
+      installments: 1
+    },
+    shippingAddress: {
+      addressLine1: 'Calle 123 #45-67',
+      city: 'Bogotá',
+      region: 'Cundinamarca',
+      country: 'CO',
+      phoneNumber: '+573001234567'
+    },
+    // ⭐ NUEVO: Lista de productos a comprar (el stock se descuenta automáticamente)
+    products: [
+      {
+        productId: '550e8400-e29b-41d4-a716-446655440000',
+        quantity: 2
+      },
+      {
+        productId: '660e8400-e29b-41d4-a716-446655440001',
+        quantity: 1
+      }
+    ]
+  })
+});
+
+const result = await paymentResponse.json();
 ```
 
-> **Importante:** NO necesitas enviar el `acceptanceToken` manualmente. El endpoint lo obtiene automáticamente de Wompi.
+> **Importante:**
+> - Solo envías el **token**, NO los datos de la tarjeta
+> - NO necesitas enviar el `acceptanceToken` manualmente, el backend lo obtiene automáticamente
+> - ⭐ **Nuevo**: Debes incluir el array `products` con los productos a comprar. El stock se descuenta automáticamente cuando el pago es aprobado
 
 **Respuesta Exitosa:**
 ```json
@@ -316,7 +360,9 @@ Content-Type: application/json
    - Intento 4: Espera 16 segundos → Consulta estado en Wompi
    - Intento 5: Espera 32 segundos → Consulta estado en Wompi
 5. ✅ **Actualiza el estado** de la transacción en la BD
-6. 📦 **Si el pago es APROBADO** → Crea automáticamente una entrega
+6. 📦 **Si el pago es APROBADO**:
+   - ⭐ **Descuenta el stock** de los productos comprados automáticamente
+   - 🚚 **Crea automáticamente una entrega**
 7. 📧 **Retorna** la transacción con el delivery y el estado final
 
 > **Nota:** Todo este flujo sucede en una sola llamada al endpoint. El cliente solo espera la respuesta final.
@@ -402,10 +448,12 @@ POST /api/v1/customers
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| `POST` | `/api/v1/wompi/tokenize-card` | Tokenizar tarjeta de crédito |
-| `POST` | `/api/v1/payments/process` | Procesar pago completo (obtiene acceptance, crea pago, verifica estado, crea delivery) |
+| `POST` | `/api/v1/payments/tokenize` | ⚠️ **Obtener info para tokenizar** (la tokenización se hace desde el frontend directamente con Wompi) |
+| `POST` | `/api/v1/payments/process` | Procesar pago completo con token (obtiene acceptance, crea pago, verifica estado, crea delivery) |
 | `GET` | `/api/v1/payments/status/:wompiTransactionId` | Verificar estado de pago con Wompi |
-| `GET` | `/api/v1/wompi/acceptance-tokens` | Obtener token de aceptación de Wompi |
+| `GET` | `/api/v1/payments/acceptance-token` | Obtener token de aceptación de Wompi |
+
+> ⚠️ **IMPORTANTE:** La tokenización de tarjetas debe hacerse **desde el frontend** llamando directamente a la API de Wompi. Ver [Paso 1](#-paso-1-tokenizar-tarjeta-desde-el-frontend) para más detalles.
 
 ### 📦 Entregas
 

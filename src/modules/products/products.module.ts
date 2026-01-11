@@ -11,6 +11,7 @@ import { GetAllProductsUseCase } from './application/use-cases/get-all-products.
 import { UpdateProductUseCase } from './application/use-cases/update-product.use-case';
 import { PRODUCT_REPOSITORY } from './domain/entities/product.entity';
 import { ProductRepositoryAdapter } from './infrastructure/adaptaters/product.repository.adapter';
+import { StockManagerService } from './application/services/stock-manager.service';
 
 /**
  * Product Module
@@ -30,10 +31,13 @@ import { ProductRepositoryAdapter } from './infrastructure/adaptaters/product.re
     GetProductByIdUseCase,
     GetAllProductsUseCase,
     UpdateProductUseCase,
+    // Services
+    StockManagerService,
   ],
   exports: [
     PRODUCT_REPOSITORY,
     GetProductByIdUseCase,
+    StockManagerService,
   ],
 })
 export class ProductsModule {}
