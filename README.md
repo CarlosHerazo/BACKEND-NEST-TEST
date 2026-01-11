@@ -7,7 +7,7 @@
 ![PostgreSQL](https://img.shields.io/badge/postgresql-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
-**Una API RESTful completa para e-commerce con integración de pagos Wompi**
+**API RESTful completa para e-commerce con integración de pagos Wompi**
 
 [🚀 Inicio Rápido](#-inicio-rápido) • [📚 Documentación](#-documentación-interactiva) • [🏗️ Arquitectura](#️-arquitectura) • [💳 Flujo de Pago](#-flujo-completo-de-pago-con-wompi)
 
@@ -214,19 +214,19 @@ src/
 
 > ⚠️ **IMPORTANTE:** La tokenización de tarjetas debe hacerse **DIRECTAMENTE desde el frontend** llamando a la API de Wompi. **NUNCA envíes datos de tarjeta al backend** por razones de seguridad y cumplimiento PCI DSS.
 
-**Desde tu frontend (JavaScript/React/Vue/etc):**
+**Desde el frontend (JavaScript/React/Vue/etc):**
 
 ```javascript
-// Obtener la clave pública desde tu backend
-const response = await fetch('http://localhost:3000/api/v1/payments/tokenize');
-const { wompiPublicKey, tokenizationUrl } = await response.json();
+// Se obtiene la clave pública desde las variables de entorno
+const wompiPublicKey = process.env.WOMPI_PUBLIC_KEY;
+const tokenizationUrl = 'https://production.wompi.co/v1/tokens/cards';
 
-// Tokenizar la tarjeta DIRECTAMENTE con Wompi desde el frontend
+// Se tokeniza la tarjeta DIRECTAMENTE con Wompi desde el frontend
 const tokenResponse = await fetch(tokenizationUrl, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${wompiPublicKey}` // Tu clave pública
+    'Authorization': `Bearer ${wompiPublicKey}`
   },
   body: JSON.stringify({
     number: '4242424242424242',
@@ -274,10 +274,10 @@ Ahora el frontend envía el **token generado** (NO los datos de tarjeta) a tu ba
 - ✅ Actualiza la transacción en la BD
 - ✅ Crea la entrega si el pago es aprobado
 
-**Desde tu frontend:**
+**Desde el frontend:**
 
 ```javascript
-// Procesar el pago enviando SOLO el token (no los datos de tarjeta)
+// Se procesa el pago enviando SOLO el token (no los datos de tarjeta)
 const paymentResponse = await fetch('http://localhost:3000/api/v1/payments/process', {
   method: 'POST',
   headers: {
@@ -302,7 +302,6 @@ const paymentResponse = await fetch('http://localhost:3000/api/v1/payments/proce
       country: 'CO',
       phoneNumber: '+573001234567'
     },
-    // ⭐ NUEVO: Lista de productos a comprar (el stock se descuenta automáticamente)
     products: [
       {
         productId: '550e8400-e29b-41d4-a716-446655440000',
@@ -320,9 +319,9 @@ const result = await paymentResponse.json();
 ```
 
 > **Importante:**
-> - Solo envías el **token**, NO los datos de la tarjeta
-> - NO necesitas enviar el `acceptanceToken` manualmente, el backend lo obtiene automáticamente
-> - ⭐ **Nuevo**: Debes incluir el array `products` con los productos a comprar. El stock se descuenta automáticamente cuando el pago es aprobado
+> - Solo se envía el **token**, NO los datos de la tarjeta
+> - NO es necesario enviar el `acceptanceToken` manualmente, el backend lo obtiene automáticamente
+> - Se debe incluir el array `products` con los productos a comprar. El stock se descuenta automáticamente cuando el pago es aprobado
 
 **Respuesta Exitosa:**
 ```json
@@ -348,24 +347,24 @@ const result = await paymentResponse.json();
 }
 ```
 
-**¿Qué sucede internamente en el endpoint `/payments/process`?**
+**Proceso interno del endpoint `/payments/process`:**
 
-1. 🎫 **Obtiene automáticamente el acceptance token** de Wompi
-2. 💾 **Crea la transacción** en la base de datos local
-3. 💳 **Envía el pago a Wompi** con el acceptance token y el card token
-4. 🔄 **Sistema de Reintentos Automático** para verificar el estado:
+1. 🎫 Se obtiene automáticamente el acceptance token de Wompi
+2. 💾 Se crea la transacción en la base de datos local
+3. 💳 Se envía el pago a Wompi con el acceptance token y el card token
+4. 🔄 Sistema de reintentos automático para verificar el estado:
    - Intento 1: Espera 2 segundos → Consulta estado en Wompi
    - Intento 2: Espera 4 segundos → Consulta estado en Wompi
    - Intento 3: Espera 8 segundos → Consulta estado en Wompi
    - Intento 4: Espera 16 segundos → Consulta estado en Wompi
    - Intento 5: Espera 32 segundos → Consulta estado en Wompi
-5. ✅ **Actualiza el estado** de la transacción en la BD
-6. 📦 **Si el pago es APROBADO**:
-   - ⭐ **Descuenta el stock** de los productos comprados automáticamente
-   - 🚚 **Crea automáticamente una entrega**
-7. 📧 **Retorna** la transacción con el delivery y el estado final
+5. ✅ Se actualiza el estado de la transacción en la BD
+6. 📦 Si el pago es APROBADO:
+   - Se descuenta el stock de los productos comprados automáticamente
+   - Se crea automáticamente una entrega
+7. 📧 Se retorna la transacción con el delivery y el estado final
 
-> **Nota:** Todo este flujo sucede en una sola llamada al endpoint. El cliente solo espera la respuesta final.
+> **Nota:** Todo este flujo sucede en una sola llamada al endpoint.
 
 #### 🔍 **Paso 3: Consultar Estado de Transacción (Opcional)**
 
@@ -690,18 +689,6 @@ enum TransactionStatus {
 }
 ```
 
-### Estados de Entrega
-
-```typescript
-enum DeliveryStatus {
-  PENDING = 'PENDING',           // Entrega pendiente
-  PROCESSING = 'PROCESSING',     // En proceso
-  SHIPPED = 'SHIPPED',           // Enviado
-  IN_TRANSIT = 'IN_TRANSIT',     // En tránsito
-  DELIVERED = 'DELIVERED',       // Entregado ✅
-  FAILED = 'FAILED'             // Entrega fallida
-}
-```
 
 ---
 
