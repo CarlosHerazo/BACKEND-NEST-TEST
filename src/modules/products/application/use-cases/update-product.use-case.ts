@@ -33,6 +33,8 @@ export class UpdateProductUseCase {
           imgUrl: dto.imgUrl,
           price: dto.price,
           stock: dto.stock,
+          category: dto.category,
+          rating: dto.rating,
         });
 
         const updateResult = await this.productRepository.update(updatedProduct);
