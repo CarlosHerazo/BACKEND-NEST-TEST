@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Result } from '../../../../shared/domain/result';
 import { Transaction } from '../../domain/entities/transaction.entity';
+import { TransactionStatus } from '../../domain/enums/transaction-status.enum';
 import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
@@ -117,6 +118,22 @@ export class CreateTransactionUseCase {
             amount: dto.amountInCents,
             email: dto.customerEmail,
           })}`,
+        );
+
+        // Update transaction status to ERROR when Wompi fails
+        const errorMessage = `Wompi error: ${wompiError.message}`;
+        const failedTransaction = transaction.updateStatus(
+          TransactionStatus.ERROR,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          errorMessage,
+        );
+
+        await this.transactionRepository.update(failedTransaction);
+        this.logger.log(
+          `Transaction ${transactionId} marked as ERROR due to Wompi failure`,
         );
 
         return Result.fail(

@@ -31,6 +31,7 @@ export class UpdateProductUseCase {
           name: dto.name,
           description: dto.description,
           imgUrl: dto.imgUrl,
+          images: dto.images,
           price: dto.price,
           stock: dto.stock,
           category: dto.category,

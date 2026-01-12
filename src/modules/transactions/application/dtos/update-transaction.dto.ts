@@ -26,4 +26,12 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsObject({ message: 'Metadata must be an object' })
   metadata?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Error message if transaction failed',
+    example: 'Wompi error: Insufficient funds',
+  })
+  @IsOptional()
+  @IsString({ message: 'Error message must be a string' })
+  errorMessage?: string;
 }

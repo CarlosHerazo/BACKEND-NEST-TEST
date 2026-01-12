@@ -94,6 +94,12 @@ export class TransactionResponseDto {
   })
   metadata?: Record<string, any>;
 
+  @ApiPropertyOptional({
+    description: 'Error message if transaction failed',
+    example: 'Wompi error: Insufficient funds',
+  })
+  errorMessage?: string;
+
   @ApiProperty({
     description: 'Creation timestamp',
     example: '2024-01-15T10:30:00Z',
@@ -123,6 +129,7 @@ export class TransactionResponseDto {
       customerPhoneNumber: transaction.customerPhoneNumber,
       shippingAddress: transaction.shippingAddress,
       metadata: transaction.metadata,
+      errorMessage: transaction.errorMessage,
       createdAt: transaction.createdAt,
       updatedAt: transaction.updatedAt,
     };

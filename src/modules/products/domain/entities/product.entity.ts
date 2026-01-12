@@ -12,6 +12,7 @@ export class Product {
     public readonly name: string,
     public readonly description: string,
     public readonly imgUrl: string,
+    public readonly images: string[] | null,
     public readonly price: number,
     public readonly stock: number,
     public readonly category: string | null,
@@ -32,6 +33,7 @@ export class Product {
     stock: number,
     category?: string | null,
     rating?: number | null,
+    images?: string[] | null,
   ): Product {
     const now = new Date();
     return new Product(
@@ -39,6 +41,7 @@ export class Product {
       name,
       description,
       imgUrl,
+      images ?? null,
       price,
       stock,
       category ?? null,
@@ -57,6 +60,7 @@ export class Product {
       data.name ?? this.name,
       data.description ?? this.description,
       data.imgUrl ?? this.imgUrl,
+      data.images !== undefined ? data.images : this.images,
       data.price ?? this.price,
       data.stock ?? this.stock,
       data.category !== undefined ? data.category : this.category,
@@ -72,6 +76,7 @@ export interface ProductUpdateData {
     name: string;
     description: string;
     imgUrl: string;
+    images: string[] | null;
     price: number;
     stock: number;
     category: string | null;

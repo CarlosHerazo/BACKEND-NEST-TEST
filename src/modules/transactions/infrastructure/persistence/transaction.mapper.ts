@@ -21,6 +21,7 @@ export class TransactionMapper {
     schema.customerPhoneNumber = transaction.customerPhoneNumber;
     schema.shippingAddress = transaction.shippingAddress;
     schema.metadata = transaction.metadata;
+    schema.errorMessage = transaction.errorMessage;
     schema.createdAt = transaction.createdAt;
     schema.updatedAt = transaction.updatedAt;
     return schema;
@@ -45,6 +46,7 @@ export class TransactionMapper {
       schema.customerPhoneNumber,
       schema.shippingAddress,
       schema.metadata,
+      schema.errorMessage,
       schema.createdAt,
       schema.updatedAt,
     );

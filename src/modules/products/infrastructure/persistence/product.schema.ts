@@ -22,6 +22,13 @@ export class ProductSchema {
   imgUrl: string;
 
   @Column({
+    type: 'simple-array',
+    nullable: true,
+    default: null,
+  })
+  images: string[] | null;
+
+  @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,

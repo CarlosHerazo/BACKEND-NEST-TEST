@@ -12,6 +12,7 @@ export class ProductMapper {
     schema.name = product.name;
     schema.description = product.description;
     schema.imgUrl = product.imgUrl;
+    schema.images = product.images;
     schema.price = product.price;
     schema.stock = product.stock;
     schema.category = product.category;
@@ -31,6 +32,7 @@ export class ProductMapper {
       schema.name,
       schema.description,
       schema.imgUrl,
+      schema.images ?? null,
       Number(schema.price),
       schema.stock,
       schema.category ?? null,

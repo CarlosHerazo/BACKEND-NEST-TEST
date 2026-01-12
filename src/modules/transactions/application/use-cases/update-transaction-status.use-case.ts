@@ -49,6 +49,7 @@ export class UpdateTransactionStatusUseCase {
         undefined,
         undefined,
         dto.metadata,
+        dto.errorMessage,
       );
 
       const updateResult =

@@ -19,6 +19,7 @@ export class Transaction {
     public readonly customerPhoneNumber?: string,
     public readonly shippingAddress?: Record<string, any>,
     public readonly metadata?: Record<string, any>,
+    public readonly errorMessage?: string,
     public readonly createdAt: Date = new Date(),
     public readonly updatedAt: Date = new Date(),
   ) {}
@@ -56,6 +57,7 @@ export class Transaction {
       customerPhoneNumber,
       shippingAddress,
       metadata,
+      undefined,
       new Date(),
       new Date(),
     );
@@ -67,6 +69,7 @@ export class Transaction {
     redirectUrl?: string,
     paymentLinkId?: string,
     metadata?: Record<string, any>,
+    errorMessage?: string,
   ): Transaction {
     return new Transaction(
       this.id,
@@ -86,6 +89,7 @@ export class Transaction {
       this.customerPhoneNumber,
       this.shippingAddress,
       metadata || this.metadata,
+      errorMessage || this.errorMessage,
       this.createdAt,
       new Date(),
     );

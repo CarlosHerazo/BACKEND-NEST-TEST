@@ -64,6 +64,9 @@ export class TransactionSchema {
   @Column('simple-json', { nullable: true })
   metadata?: Record<string, any>;
 
+  @Column('text', { nullable: true })
+  errorMessage?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

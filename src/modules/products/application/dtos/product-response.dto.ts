@@ -30,6 +30,14 @@ export class ProductResponseDto {
   imgUrl: string;
 
   @ApiProperty({
+    description: 'Additional product images',
+    example: ['https://example.com/images/mouse1.png', 'https://example.com/images/mouse2.png'],
+    nullable: true,
+    type: [String],
+  })
+  images: string[] | null;
+
+  @ApiProperty({
     description: 'Product price',
     example: 29.99,
   })
@@ -76,6 +84,7 @@ export class ProductResponseDto {
       name: product.name,
       description: product.description,
       imgUrl: product.imgUrl,
+      images: product.images,
       price: product.price,
       stock: product.stock,
       category: product.category,

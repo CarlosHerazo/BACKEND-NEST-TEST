@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsInt,
   IsNumber,
   IsOptional,
@@ -40,6 +41,17 @@ export class UpdateProductDto {
   @IsOptional()
   @IsUrl()
   imgUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Additional product images',
+    example: ['https://example.com/images/mouse1.png', 'https://example.com/images/mouse2.png'],
+    nullable: true,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  images?: string[] | null;
 
   @ApiPropertyOptional({
     description: 'Product price',
