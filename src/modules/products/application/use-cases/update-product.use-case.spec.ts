@@ -14,8 +14,11 @@ describe('UpdateProductUseCase', () => {
     'Test Product',
     'This is a test product description',
     'https://example.com/image.jpg',
+    null, // images
     99.99,
     10,
+    null, // category
+    null, // rating
     new Date(),
     new Date(),
   );
@@ -56,8 +59,11 @@ describe('UpdateProductUseCase', () => {
         'Updated Product',
         mockProduct.description,
         mockProduct.imgUrl,
+        null, // images
         149.99,
         mockProduct.stock,
+        null, // category
+        null, // rating
         mockProduct.createdAt,
         new Date(),
       );

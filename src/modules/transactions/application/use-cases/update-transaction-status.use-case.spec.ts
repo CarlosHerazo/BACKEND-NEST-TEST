@@ -28,6 +28,7 @@ describe('UpdateTransactionStatusUseCase', () => {
     '+573001234567',
     {},
     {},
+    undefined,
     new Date(),
     new Date(),
   );
@@ -120,6 +121,52 @@ describe('UpdateTransactionStatusUseCase', () => {
 
       expect(result.isFailure).toBe(true);
       expect(result.getError().message).toContain('Failed to update transaction');
+    });
+
+    it('should update transaction with error message', async () => {
+      const dtoWithError: UpdateTransactionDto = {
+        status: TransactionStatus.ERROR,
+        wompiTransactionId: 'wompi-123',
+        errorMessage: 'Wompi error: Insufficient funds',
+      };
+
+      const updatedTransaction = mockTransaction.updateStatus(
+        TransactionStatus.ERROR,
+        'wompi-123',
+        undefined,
+        undefined,
+        undefined,
+        'Wompi error: Insufficient funds',
+      );
+
+      repository.findByReference.mockResolvedValue(Result.ok(mockTransaction));
+      repository.update.mockResolvedValue(Result.ok(updatedTransaction));
+
+      const result = await useCase.execute('ref-123', dtoWithError);
+
+      expect(result.isSuccess).toBe(true);
+      expect(result.getValue().status).toBe(TransactionStatus.ERROR);
+      expect(result.getValue().errorMessage).toBe('Wompi error: Insufficient funds');
+    });
+
+    it('should update transaction to DECLINED status', async () => {
+      const declinedDto: UpdateTransactionDto = {
+        status: TransactionStatus.DECLINED,
+        wompiTransactionId: 'wompi-123',
+      };
+
+      const updatedTransaction = mockTransaction.updateStatus(
+        TransactionStatus.DECLINED,
+        'wompi-123',
+      );
+
+      repository.findByReference.mockResolvedValue(Result.ok(mockTransaction));
+      repository.update.mockResolvedValue(Result.ok(updatedTransaction));
+
+      const result = await useCase.execute('ref-123', declinedDto);
+
+      expect(result.isSuccess).toBe(true);
+      expect(result.getValue().status).toBe(TransactionStatus.DECLINED);
     });
   });
 });
