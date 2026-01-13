@@ -17,19 +17,13 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { WompiIntegrationService } from '../../../transactions/application/services/wompi-integration.service';
-import { WompiApiClient } from '../../../transactions/infrastructure/clients/wompi-api.client';
 import { CreateTransactionUseCase } from '../../../transactions/application/use-cases/create-transaction.use-case';
 import { ProcessPaymentDto } from '../../application/dtos/process-payment.dto';
 import { PaymentResponseDto } from '../../application/dtos/payment-response.dto';
 import { PaymentStatusCheckerService } from '../../application/services/payment-status-checker.service';
-import {
-  type ITransactionRepository,
-  TRANSACTION_REPOSITORY,
-} from '../../../transactions/domain/ports/transaction.repository.port';
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
-import { AutoDeliveryService } from '../../../deliveries/application/services/auto-delivery.service';
-import { StockManagerService } from '../../../products/application/services/stock-manager.service';
+import { ProcessPaymentUseCase } from '../../application/use-cases/process-payment.use-case';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -38,12 +32,8 @@ export class PaymentController {
 
   constructor(
     private readonly wompiIntegrationService: WompiIntegrationService,
-    private readonly createTransactionUseCase: CreateTransactionUseCase,
     private readonly paymentStatusChecker: PaymentStatusCheckerService,
-    private readonly autoDeliveryService: AutoDeliveryService,
-    private readonly stockManagerService: StockManagerService,
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
+    private readonly processPaymentUseCase: ProcessPaymentUseCase,
   ) {}
 
   @Get('acceptance-token')
@@ -162,226 +152,7 @@ export class PaymentController {
   async processPayment(
     @Body() paymentDto: ProcessPaymentDto,
   ): Promise<PaymentResponseDto> {
-    try {
-      this.logger.log(
-        `Processing payment for customer ${paymentDto.customerId}, amount: ${paymentDto.amountInCents}`,
-      );
-
-      // 1. Obtener tokens de aceptación de Wompi
-      const acceptanceToken =
-        await this.wompiIntegrationService.getAcceptanceToken();
-      const personalAuthToken =
-        await this.wompiIntegrationService.getPersonalAuthToken();
-
-      // 2. Generar referencia única para la transacción
-      const reference = `ORDER-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
-
-      // 3. Redondear el monto para eliminar centavos (COP no soporta decimales)
-      // Wompi requiere que los montos en COP sean múltiplos de 100 (sin centavos)
-      const currency = paymentDto.currency || 'COP';
-      let adjustedAmount = paymentDto.amountInCents;
-
-      if (currency === 'COP') {
-        // Redondear al múltiplo de 100 más cercano (eliminar centavos)
-        adjustedAmount = Math.round(paymentDto.amountInCents / 100) * 100;
-
-        if (adjustedAmount !== paymentDto.amountInCents) {
-          this.logger.warn(
-            `Amount adjusted from ${paymentDto.amountInCents} to ${adjustedAmount} to remove cents (COP doesn't support decimal amounts)`,
-          );
-        }
-      }
-
-      // 4. Crear el DTO de transacción completo
-      const createTransactionDto = {
-        customerId: paymentDto.customerId,
-        customerEmail: paymentDto.customerEmail,
-        amountInCents: adjustedAmount,
-        currency: currency,
-        reference,
-        paymentMethod: paymentDto.paymentMethod,
-        acceptanceToken,
-        acceptPersonalAuth: personalAuthToken,
-        customerFullName: paymentDto.customerFullName,
-        customerPhoneNumber: paymentDto.customerPhoneNumber,
-        shippingAddress: paymentDto.shippingAddress,
-        metadata: paymentDto.metadata,
-      };
-
-      // 5. Crear transacción (esto también la procesa con Wompi)
-      const result =
-        await this.createTransactionUseCase.execute(createTransactionDto);
-
-      if (result.isFailure) {
-        const error = result.getError();
-        this.logger.error(`Payment processing failed: ${error.message}`);
-        throw new BadRequestException(
-          `Payment processing failed: ${error.message}`,
-        );
-      }
-
-      const transaction = result.getValue();
-
-      this.logger.log(
-        `Payment processed successfully. Transaction ID: ${transaction.id}, Wompi ID: ${transaction.wompiTransactionId}`,
-      );
-
-      // 6. Check payment status immediately (no esperar por webhook)
-      let finalTransaction = transaction;
-      if (transaction.wompiTransactionId) {
-        try {
-          this.logger.log(
-            `Checking payment status for Wompi transaction: ${transaction.wompiTransactionId}`,
-          );
-
-          const statusCheck = await this.paymentStatusChecker.checkPaymentStatusWithRetry(
-            transaction.wompiTransactionId,
-            5, // 5 retries (attempts: 2s, 4s, 8s, 16s intervals = ~30s total)
-            2000, // 2 seconds initial delay
-            true, // Use exponential backoff
-          );
-
-          if (statusCheck.success) {
-            this.logger.log(
-              `Payment status retrieved: ${statusCheck.status}`,
-            );
-
-            // Log detailed status information
-            this.logger.debug(
-              `Status check details: ${JSON.stringify({
-                success: statusCheck.success,
-                status: statusCheck.status,
-                paymentId: statusCheck.paymentId,
-                hasRawData: !!statusCheck.rawData,
-              })}`,
-            );
-
-            // Map PaymentStatus to TransactionStatus
-            const transactionStatus = this.mapPaymentStatusToTransactionStatus(
-              statusCheck.status,
-            );
-
-            // Update transaction status in database
-            const updatedTransaction = transaction.updateStatus(
-              transactionStatus,
-              transaction.wompiTransactionId,
-              transaction.redirectUrl,
-              transaction.paymentLinkId,
-            );
-
-            const updateResult = await this.transactionRepository.update(
-              updatedTransaction,
-            );
-
-            if (updateResult.isSuccess) {
-              finalTransaction = updateResult.getValue();
-              this.logger.log(
-                `Transaction status updated to: ${transactionStatus}`,
-              );
-
-              // Log update details
-              this.logger.debug(
-                `Transaction update: ID=${finalTransaction.id}, Status=${finalTransaction.status}, WompiID=${finalTransaction.wompiTransactionId}`,
-              );
-
-              // 6.5. Deduct stock and create delivery if payment is approved
-              if (transactionStatus === TransactionStatus.APPROVED) {
-                this.logger.log(
-                  `Payment approved, deducting stock and creating delivery for transaction ${finalTransaction.id}`,
-                );
-
-                // 6.5.1. Deduct stock for purchased products
-                try {
-                  const stockItems = paymentDto.products.map(p => ({
-                    productId: p.productId,
-                    quantity: p.quantity,
-                  }));
-
-                  const stockResult = await this.stockManagerService.deductStock(stockItems);
-
-                  if (stockResult.isFailure) {
-                    this.logger.error(
-                      `Failed to deduct stock: ${stockResult.getError().message}`,
-                    );
-                    // Note: Payment is already approved, log error but don't fail
-                    // In production, you might want to trigger a compensating transaction
-                  } else {
-                    this.logger.log(
-                      `Stock deducted successfully for ${stockItems.length} products`,
-                    );
-                  }
-                } catch (stockError) {
-                  this.logger.error(
-                    `Error deducting stock for transaction ${finalTransaction.id}: ${stockError.message}`,
-                  );
-                }
-
-                // 6.5.2. Create delivery
-                try {
-                  const deliveryId = await this.autoDeliveryService.createDeliveryForTransaction(
-                    finalTransaction,
-                  );
-
-                  if (deliveryId) {
-                    this.logger.log(
-                      `Delivery ${deliveryId} created automatically for transaction ${finalTransaction.id}`,
-                    );
-                  }
-                } catch (deliveryError) {
-                  // Log error but don't fail the payment response
-                  this.logger.error(
-                    `Failed to create delivery for transaction ${finalTransaction.id}: ${deliveryError.message}`,
-                  );
-                }
-              }
-            }
-          }
-        } catch (statusError) {
-          // Log error but don't fail the response
-          this.logger.warn(
-            `Could not check payment status: ${statusError.message}`,
-          );
-          this.logger.warn(
-            `Status error stack: ${statusError.stack}`,
-          );
-        }
-      }
-
-      // 7. Construir respuesta
-      const response: PaymentResponseDto = {
-        transactionId: finalTransaction.id,
-        wompiTransactionId: finalTransaction.wompiTransactionId || '',
-        reference: finalTransaction.reference,
-        status: finalTransaction.status,
-        redirectUrl: finalTransaction.redirectUrl || null,
-        paymentLinkId: finalTransaction.paymentLinkId || null,
-        info: {
-          message: 'Payment processed successfully',
-          nextStep:
-            finalTransaction.status === TransactionStatus.APPROVED
-              ? 'Payment approved and completed'
-              : finalTransaction.status === TransactionStatus.DECLINED
-                ? 'Payment was declined'
-                : 'Payment is being processed. Status has been verified with provider.',
-        },
-        createdAt: finalTransaction.createdAt,
-      };
-
-      return response;
-    } catch (error) {
-      this.logger.error(
-        `Error processing payment: ${error.message}`,
-        error.stack,
-      );
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new BadRequestException(
-        `Failed to process payment: ${error.message}`,
-      );
-    }
+    return this.processPaymentUseCase.execute(paymentDto);
   }
 
   @Get('status/:wompiTransactionId')

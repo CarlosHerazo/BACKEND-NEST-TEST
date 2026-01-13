@@ -30,6 +30,7 @@ import { WompiIntegrationService } from './application/services/wompi-integratio
   ],
   exports: [
     TRANSACTION_REPOSITORY,
+    WompiApiClient,
     CreateTransactionUseCase,
     GetTransactionByIdUseCase,
     UpdateTransactionStatusUseCase,
