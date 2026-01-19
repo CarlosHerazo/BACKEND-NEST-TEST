@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IProductRepository } from '../../domain/ports/product.repository.port';
 import { Product } from '../../domain/entities/product.entity';
-import { Result } from 'src/shared/domain/result';
+import { Result } from '../../../../shared/domain/result';
 import { ProductSchema } from '../persistence/product.schema';
 import { ProductMapper } from '../persistence/product.mapper';
 
