@@ -2,12 +2,10 @@ import {
   IsString,
   IsNotEmpty,
   IsEmail,
-  IsNumber,
   IsOptional,
   ValidateNested,
   IsInt,
   Min,
-  IsEnum,
   IsArray,
   ArrayMinSize,
 } from 'class-validator';
@@ -123,16 +121,7 @@ export class ProcessPaymentDto {
   @IsNotEmpty()
   customerEmail: string;
 
-  @ApiProperty({
-    example: 5000000,
-    description: 'Amount in cents (COP)',
-  })
-  @IsNumber()
-  @IsInt()
-  @Min(1)
-  amountInCents: number;
-
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'COP',
     description: 'Currency code',
     default: 'COP',
@@ -183,10 +172,10 @@ export class ProcessPaymentDto {
 
   @ApiProperty({
     type: [ProductItemDto],
-    description: 'Products to purchase (stock will be deducted)',
+    description: 'Products to purchase (total is calculated server-side)',
     example: [
       { productId: '550e8400-e29b-41d4-a716-446655440000', quantity: 2 },
-      { productId: '660e8400-e29b-41d4-a716-446655440001', quantity: 1 }
+      { productId: '660e8400-e29b-41d4-a716-446655440001', quantity: 1 },
     ],
   })
   @ValidateNested({ each: true })
@@ -194,4 +183,12 @@ export class ProcessPaymentDto {
   @IsArray()
   @ArrayMinSize(1)
   products: ProductItemDto[];
+
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Discount code ID to apply',
+  })
+  @IsString()
+  @IsOptional()
+  discountCodeId?: string;
 }

@@ -74,6 +74,13 @@ export class WompiApiClient {
       );
 
       // Log the request payload (without sensitive data)
+      this.logger.log(
+        `AMOUNT CHECK: amount_in_cents=${request.amount_in_cents}, ` +
+        `type=${typeof request.amount_in_cents}, ` +
+        `isInteger=${Number.isInteger(request.amount_in_cents)}, ` +
+        `mod100=${request.amount_in_cents % 100}`,
+      );
+
       this.logger.debug(
         `Transaction request payload: ${JSON.stringify({
           reference: request.reference,

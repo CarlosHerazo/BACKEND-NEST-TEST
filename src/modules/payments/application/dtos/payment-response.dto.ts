@@ -40,6 +40,22 @@ export class PaymentResponseDto {
   })
   paymentLinkId: string | null;
 
+  @ApiPropertyOptional({
+    example: {
+      subtotalInCents: 15000000,
+      discountInCents: 1500000,
+      totalInCents: 13500000,
+      discountCode: 'SUMMER2024',
+    },
+    description: 'Breakdown of the price calculation (server-side calculated)',
+  })
+  priceBreakdown?: {
+    subtotalInCents: number;
+    discountInCents: number;
+    totalInCents: number;
+    discountCode?: string;
+  };
+
   @ApiProperty({
     example: {
       message: 'Payment initiated successfully',

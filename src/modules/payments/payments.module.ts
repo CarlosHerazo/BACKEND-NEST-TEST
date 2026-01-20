@@ -9,6 +9,7 @@ import { ProcessPaymentUseCase } from './application/use-cases/process-payment.u
 import { PaymentPreparationService } from './application/services/payment-preparation.service';
 import { PaymentConfirmationService } from './application/services/payment-confirmation.service';
 import { PostPaymentOrchestrator } from './application/services/post-payment.orchestrator';
+import { PriceCalculatorService } from './application/services/price-calculator.service';
 
 @Module({
   imports: [TransactionsModule, DeliveriesModule, ProductsModule, ConfigModule],
@@ -19,6 +20,7 @@ import { PostPaymentOrchestrator } from './application/services/post-payment.orc
     PaymentPreparationService,
     PaymentConfirmationService,
     PostPaymentOrchestrator,
+    PriceCalculatorService,
   ],
   exports: [PaymentStatusCheckerService],
 })
