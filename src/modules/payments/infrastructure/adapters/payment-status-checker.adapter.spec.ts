@@ -1,16 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PaymentStatusCheckerService } from './payment-status-checker.service';
+import { PaymentStatusCheckerAdapter } from './payment-status-checker.adapter';
 import { WompiApiClient } from '../../../transactions/infrastructure/clients/wompi-api.client';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
 
-describe('PaymentStatusCheckerService', () => {
-  let service: PaymentStatusCheckerService;
+describe('PaymentStatusCheckerAdapter', () => {
+  let adapter: PaymentStatusCheckerAdapter;
   let wompiApiClient: jest.Mocked<WompiApiClient>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PaymentStatusCheckerService,
+        PaymentStatusCheckerAdapter,
         {
           provide: WompiApiClient,
           useValue: {
@@ -20,12 +20,12 @@ describe('PaymentStatusCheckerService', () => {
       ],
     }).compile();
 
-    service = module.get<PaymentStatusCheckerService>(PaymentStatusCheckerService);
+    adapter = module.get<PaymentStatusCheckerAdapter>(PaymentStatusCheckerAdapter);
     wompiApiClient = module.get(WompiApiClient);
   });
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(adapter).toBeDefined();
   });
 
   describe('checkPaymentStatus', () => {
@@ -38,7 +38,7 @@ describe('PaymentStatusCheckerService', () => {
         },
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(true);
       expect(result.status).toBe(PaymentStatus.APPROVED);
@@ -54,7 +54,7 @@ describe('PaymentStatusCheckerService', () => {
         },
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(true);
       expect(result.status).toBe(PaymentStatus.DECLINED);
@@ -69,7 +69,7 @@ describe('PaymentStatusCheckerService', () => {
         },
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(true);
       expect(result.status).toBe(PaymentStatus.PENDING);
@@ -84,7 +84,7 @@ describe('PaymentStatusCheckerService', () => {
         },
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(true);
       expect(result.status).toBe(PaymentStatus.VOIDED);
@@ -99,7 +99,7 @@ describe('PaymentStatusCheckerService', () => {
         },
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(true);
       expect(result.status).toBe(PaymentStatus.ERROR);
@@ -111,7 +111,7 @@ describe('PaymentStatusCheckerService', () => {
         data: null,
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(false);
       expect(result.status).toBe(PaymentStatus.ERROR);
@@ -120,7 +120,7 @@ describe('PaymentStatusCheckerService', () => {
     it('should return error when API throws exception', async () => {
       wompiApiClient.checkPaymentStatus.mockRejectedValue(new Error('Network error'));
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(false);
       expect(result.status).toBe(PaymentStatus.ERROR);
@@ -132,7 +132,7 @@ describe('PaymentStatusCheckerService', () => {
         data: {},
       });
 
-      const result = await service.checkPaymentStatus('payment-123');
+      const result = await adapter.checkPaymentStatus('payment-123');
 
       expect(result.success).toBe(false);
       expect(result.status).toBe(PaymentStatus.ERROR);
@@ -154,7 +154,7 @@ describe('PaymentStatusCheckerService', () => {
         data: { status: 'APPROVED' },
       });
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 3, 1000);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 3, 1000);
       await jest.runAllTimersAsync();
       const result = await resultPromise;
 
@@ -168,7 +168,7 @@ describe('PaymentStatusCheckerService', () => {
         data: { status: 'DECLINED' },
       });
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 3, 1000);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 3, 1000);
       await jest.runAllTimersAsync();
       const result = await resultPromise;
 
@@ -182,7 +182,7 @@ describe('PaymentStatusCheckerService', () => {
         .mockResolvedValueOnce({ success: true, data: { status: 'PENDING' } })
         .mockResolvedValueOnce({ success: true, data: { status: 'APPROVED' } });
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 5, 100, false);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 5, 100, false);
       await jest.runAllTimersAsync();
       const result = await resultPromise;
 
@@ -196,7 +196,7 @@ describe('PaymentStatusCheckerService', () => {
         data: { status: 'PENDING' },
       });
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 3, 100, false);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 3, 100, false);
       await jest.runAllTimersAsync();
       const result = await resultPromise;
 
@@ -210,17 +210,14 @@ describe('PaymentStatusCheckerService', () => {
         data: { status: 'PENDING' },
       });
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 3, 1000, true);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 3, 1000, true);
 
-      // First call is immediate
       await jest.advanceTimersByTimeAsync(0);
       expect(wompiApiClient.checkPaymentStatus).toHaveBeenCalledTimes(1);
 
-      // Second call after 1000ms (1000 * 2^0)
       await jest.advanceTimersByTimeAsync(1000);
       expect(wompiApiClient.checkPaymentStatus).toHaveBeenCalledTimes(2);
 
-      // Third call after 2000ms (1000 * 2^1)
       await jest.advanceTimersByTimeAsync(2000);
       expect(wompiApiClient.checkPaymentStatus).toHaveBeenCalledTimes(3);
 
@@ -230,7 +227,7 @@ describe('PaymentStatusCheckerService', () => {
     it('should return error response if all retries fail', async () => {
       wompiApiClient.checkPaymentStatus.mockRejectedValue(new Error('Network error'));
 
-      const resultPromise = service.checkPaymentStatusWithRetry('payment-123', 2, 100, false);
+      const resultPromise = adapter.checkPaymentStatusWithRetry('payment-123', 2, 100, false);
       await jest.runAllTimersAsync();
       const result = await resultPromise;
 

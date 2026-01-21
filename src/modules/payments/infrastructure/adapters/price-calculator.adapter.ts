@@ -1,31 +1,20 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PRODUCT_REPOSITORY } from '../../../products/domain/entities/product.entity';
-import { DISCOUNT_CODE_REPOSITORY, DiscountCode } from '../../../products/domain/entities/discount-code.entity';
+import {
+  DISCOUNT_CODE_REPOSITORY,
+  DiscountCode,
+} from '../../../products/domain/entities/discount-code.entity';
 import type { IProductRepository } from '../../../products/domain/ports/product.repository.port';
 import type { IDiscountCodeRepository } from '../../../products/domain/ports/discount-code.repository.port';
-
-export interface ProductItem {
-  productId: string;
-  quantity: number;
-}
-
-export interface PriceCalculationResult {
-  subtotalInCents: number;
-  discountInCents: number;
-  totalInCents: number;
-  discountCode?: DiscountCode;
-  items: {
-    productId: string;
-    productName: string;
-    unitPriceInCents: number;
-    quantity: number;
-    lineTotalInCents: number;
-  }[];
-}
+import {
+  IPriceCalculatorPort,
+  ProductItem,
+  PriceCalculationResult,
+} from '../../domain/ports/price-calculator.port';
 
 @Injectable()
-export class PriceCalculatorService {
-  private readonly logger = new Logger(PriceCalculatorService.name);
+export class PriceCalculatorAdapter implements IPriceCalculatorPort {
+  private readonly logger = new Logger(PriceCalculatorAdapter.name);
 
   constructor(
     @Inject(PRODUCT_REPOSITORY)
@@ -58,7 +47,6 @@ export class PriceCalculatorService {
         );
       }
 
-      // El precio ya está en centavos en la DB, redondear para evitar decimales
       const unitPriceInCents = Math.floor(product.price);
       const lineTotalInCents = unitPriceInCents * item.quantity;
 
@@ -77,7 +65,8 @@ export class PriceCalculatorService {
     let discountCode: DiscountCode | undefined;
 
     if (discountCodeId) {
-      const discountResult = await this.discountCodeRepository.findById(discountCodeId);
+      const discountResult =
+        await this.discountCodeRepository.findById(discountCodeId);
 
       if (discountResult.isSuccess) {
         discountCode = discountResult.getValue();

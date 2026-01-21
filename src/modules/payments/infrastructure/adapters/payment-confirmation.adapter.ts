@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { PaymentStatusCheckerService } from './payment-status-checker.service';
+import { PAYMENT_STATUS_CHECKER_PORT } from '../../domain/ports/payment-status-checker.port';
+import type { IPaymentStatusCheckerPort } from '../../domain/ports/payment-status-checker.port';
 import {
   TRANSACTION_REPOSITORY,
   type ITransactionRepository,
@@ -7,11 +8,13 @@ import {
 import { Transaction } from '../../../transactions/domain/entities/transaction.entity';
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
+import { IPaymentConfirmationPort } from '../../domain/ports/payment-confirmation.port';
 
 @Injectable()
-export class PaymentConfirmationService {
+export class PaymentConfirmationAdapter implements IPaymentConfirmationPort {
   constructor(
-    private readonly paymentStatusChecker: PaymentStatusCheckerService,
+    @Inject(PAYMENT_STATUS_CHECKER_PORT)
+    private readonly paymentStatusChecker: IPaymentStatusCheckerPort,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
   ) {}

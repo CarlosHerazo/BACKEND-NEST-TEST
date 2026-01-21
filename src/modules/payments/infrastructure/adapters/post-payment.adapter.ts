@@ -3,15 +3,11 @@ import { AutoDeliveryService } from '../../../deliveries/application/services/au
 import { StockManagerService } from '../../../products/application/services/stock-manager.service';
 import { Transaction } from '../../../transactions/domain/entities/transaction.entity';
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
-
-export interface ProductItem {
-  productId: string;
-  quantity: number;
-}
+import { IPostPaymentPort, ProductItem } from '../../domain/ports/post-payment.port';
 
 @Injectable()
-export class PostPaymentOrchestrator {
-  private readonly logger = new Logger(PostPaymentOrchestrator.name);
+export class PostPaymentAdapter implements IPostPaymentPort {
+  private readonly logger = new Logger(PostPaymentAdapter.name);
 
   constructor(
     private readonly autoDeliveryService: AutoDeliveryService,

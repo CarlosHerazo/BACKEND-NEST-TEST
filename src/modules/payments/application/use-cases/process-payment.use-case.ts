@@ -1,11 +1,15 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, Inject } from '@nestjs/common';
 import { ProcessPaymentDto } from '../dtos/process-payment.dto';
 import { PaymentResponseDto } from '../dtos/payment-response.dto';
 import { CreateTransactionUseCase } from '../../../transactions/application/use-cases/create-transaction.use-case';
-import { PaymentPreparationService } from '../services/payment-preparation.service';
-import { PaymentConfirmationService } from '../services/payment-confirmation.service';
-import { PostPaymentOrchestrator } from '../services/post-payment.orchestrator';
-import { PriceCalculatorService, PriceCalculationResult } from '../services/price-calculator.service';
+import { PAYMENT_PREPARATION_PORT } from '../../domain/ports/payment-preparation.port';
+import { PAYMENT_CONFIRMATION_PORT } from '../../domain/ports/payment-confirmation.port';
+import { POST_PAYMENT_PORT } from '../../domain/ports/post-payment.port';
+import { PRICE_CALCULATOR_PORT } from '../../domain/ports/price-calculator.port';
+import type { IPaymentPreparationPort, PreparedPaymentData } from '../../domain/ports/payment-preparation.port';
+import type { IPaymentConfirmationPort } from '../../domain/ports/payment-confirmation.port';
+import type { IPostPaymentPort } from '../../domain/ports/post-payment.port';
+import type { IPriceCalculatorPort, PriceCalculationResult } from '../../domain/ports/price-calculator.port';
 import { Transaction } from '../../../transactions/domain/entities/transaction.entity';
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
 
@@ -14,59 +18,50 @@ export class ProcessPaymentUseCase {
   private readonly logger = new Logger(ProcessPaymentUseCase.name);
 
   constructor(
-    private readonly paymentPreparation: PaymentPreparationService,
+    @Inject(PAYMENT_PREPARATION_PORT)
+    private readonly paymentPreparation: IPaymentPreparationPort,
     private readonly createTransactionUseCase: CreateTransactionUseCase,
-    private readonly paymentConfirmation: PaymentConfirmationService,
-    private readonly postPaymentOrchestrator: PostPaymentOrchestrator,
-    private readonly priceCalculator: PriceCalculatorService,
+    @Inject(PAYMENT_CONFIRMATION_PORT)
+    private readonly paymentConfirmation: IPaymentConfirmationPort,
+    @Inject(POST_PAYMENT_PORT)
+    private readonly postPaymentOrchestrator: IPostPaymentPort,
+    @Inject(PRICE_CALCULATOR_PORT)
+    private readonly priceCalculator: IPriceCalculatorPort,
   ) {}
 
   async execute(dto: ProcessPaymentDto): Promise<PaymentResponseDto> {
     try {
-      // 1️⃣ Calcular el total de forma segura desde el servidor
-      this.logger.log('Calculating secure total from product prices...');
+      // 1️ Calcular el total de forma segura desde el servidor
       const priceCalculation = await this.priceCalculator.calculateTotal(
         dto.products,
         dto.discountCodeId,
       );
 
-      this.logger.log(
-        `Secure price calculation: subtotal=${priceCalculation.subtotalInCents}, ` +
-        `discount=${priceCalculation.discountInCents}, total=${priceCalculation.totalInCents}`,
-      );
-
-      // 2️⃣ Preparar datos del pago (usando el total calculado en el servidor)
+      // 2️ Preparar datos del pago (usando el total calculado en el servidor)
       const preparedData = await this.paymentPreparation.prepareWithCalculatedAmount(
         dto,
         priceCalculation.totalInCents,
       );
 
-      this.logger.log(
-        `Amount adjustment: originalTotal=${priceCalculation.totalInCents}, ` +
-        `adjustedAmount=${preparedData.adjustedAmount}, currency=${preparedData.currency}`,
-      );
-
-      // 3️⃣ Crear transacción
+      // 3️ Crear transacción en base de datos y enviar payload a Wompi
       const transaction = await this.createTransaction(dto, preparedData, priceCalculation);
 
-      // 4️⃣ Confirmar estado del pago
-      const confirmedTransaction =
-        await this.paymentConfirmation.confirmAndUpdate(transaction);
+      // 4️ Confirmar estado del pago
+      const confirmedTransaction = await this.paymentConfirmation.confirmAndUpdate(transaction);
 
-      // 5️⃣ Acciones post-aprobación
+      // 5️ Acciones post-aprobación (actualizar inventario)
       await this.postPaymentOrchestrator.handle(confirmedTransaction, dto.products);
 
-      // 6️⃣ Construir respuesta
+      // 6️ Construir respuesta
       return this.buildResponse(confirmedTransaction, priceCalculation);
     } catch (error) {
-      this.logger.error(error.message, error.stack);
       throw new BadRequestException(`Failed to process payment: ${error.message}`);
     }
   }
 
   private async createTransaction(
     dto: ProcessPaymentDto,
-    preparedData: { reference: string; adjustedAmount: number; currency: string; acceptanceToken: string; personalAuthToken: string },
+    preparedData: PreparedPaymentData,
     priceCalculation: PriceCalculationResult,
   ): Promise<Transaction> {
     const createTransactionDto = {

@@ -1,17 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WompiApiClient } from '../../../transactions/infrastructure/clients/wompi-api.client';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
-import { PaymentStatusResponseDto } from '../dtos/payment-status-response.dto';
+import { PaymentStatusResponseDto } from '../../application/dtos/payment-status-response.dto';
+import { IPaymentStatusCheckerPort } from '../../domain/ports/payment-status-checker.port';
 
 @Injectable()
-export class PaymentStatusCheckerService {
-  private readonly logger = new Logger(PaymentStatusCheckerService.name);
+export class PaymentStatusCheckerAdapter implements IPaymentStatusCheckerPort {
+  private readonly logger = new Logger(PaymentStatusCheckerAdapter.name);
 
   constructor(private readonly wompiApiClient: WompiApiClient) {}
 
-  /**
-   * Maps Wompi status to generic payment status
-   */
   private mapProviderStatusToGeneric(wompiStatus: string): PaymentStatus {
     const statusMap: Record<string, PaymentStatus> = {
       APPROVED: PaymentStatus.APPROVED,
@@ -24,10 +22,6 @@ export class PaymentStatusCheckerService {
     return statusMap[wompiStatus] || PaymentStatus.ERROR;
   }
 
-  /**
-   * Check payment status from provider
-   * This allows checking status without waiting for webhooks
-   */
   async checkPaymentStatus(
     paymentId: string,
   ): Promise<PaymentStatusResponseDto> {
@@ -49,18 +43,24 @@ export class PaymentStatusCheckerService {
           `Payment ${paymentId} status: ${response.data.status} -> ${mappedStatus}`,
         );
 
-        // Log additional payment details if status is ERROR or DECLINED
-        if (mappedStatus === PaymentStatus.ERROR || mappedStatus === PaymentStatus.DECLINED) {
+        if (
+          mappedStatus === PaymentStatus.ERROR ||
+          mappedStatus === PaymentStatus.DECLINED
+        ) {
           this.logger.warn(
             `Payment ${paymentId} failed. Status message: ${response.data.status_message || 'N/A'}`,
           );
           this.logger.warn(
-            `Payment error details: ${JSON.stringify({
-              status: response.data.status,
-              status_message: response.data.status_message,
-              payment_method_type: response.data.payment_method_type,
-              payment_method: response.data.payment_method,
-            }, null, 2)}`,
+            `Payment error details: ${JSON.stringify(
+              {
+                status: response.data.status,
+                status_message: response.data.status_message,
+                payment_method_type: response.data.payment_method_type,
+                payment_method: response.data.payment_method,
+              },
+              null,
+              2,
+            )}`,
           );
         }
 
@@ -86,9 +86,7 @@ export class PaymentStatusCheckerService {
       this.logger.error(
         `Error checking payment status for ${paymentId}: ${error.message}`,
       );
-      this.logger.error(
-        `Error stack: ${error.stack}`,
-      );
+      this.logger.error(`Error stack: ${error.stack}`);
 
       return new PaymentStatusResponseDto(
         false,
@@ -99,11 +97,6 @@ export class PaymentStatusCheckerService {
     }
   }
 
-  /**
-   * Polls payment status with retry logic
-   * Useful for checking status immediately after payment creation
-   * Uses exponential backoff for better handling of delayed responses
-   */
   async checkPaymentStatusWithRetry(
     paymentId: string,
     maxRetries: number = 5,
@@ -119,7 +112,6 @@ export class PaymentStatusCheckerService {
 
       lastResponse = await this.checkPaymentStatus(paymentId);
 
-      // If we got a definitive status (not pending), return immediately
       if (
         lastResponse.success &&
         lastResponse.status !== PaymentStatus.PENDING
@@ -130,11 +122,10 @@ export class PaymentStatusCheckerService {
         return lastResponse;
       }
 
-      // Wait before next retry (except on last attempt)
       if (attempt < maxRetries) {
         const delay = useExponentialBackoff
-          ? initialDelayMs * Math.pow(2, attempt - 1) // Exponential: 2s, 4s, 8s, 16s...
-          : initialDelayMs; // Fixed delay
+          ? initialDelayMs * Math.pow(2, attempt - 1)
+          : initialDelayMs;
 
         this.logger.log(
           `Payment still ${lastResponse?.status || 'pending'}. Waiting ${delay}ms before next check...`,
@@ -148,7 +139,6 @@ export class PaymentStatusCheckerService {
       `Payment status check completed after ${maxRetries} attempts. Final status: ${lastResponse?.status || 'unknown'}`,
     );
 
-    // Return last response after all retries
     return (
       lastResponse ||
       new PaymentStatusResponseDto(false, PaymentStatus.ERROR, paymentId, '')

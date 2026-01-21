@@ -1,16 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PaymentConfirmationService } from './payment-confirmation.service';
-import { PaymentStatusCheckerService } from './payment-status-checker.service';
+import { PaymentConfirmationAdapter } from './payment-confirmation.adapter';
+import { PAYMENT_STATUS_CHECKER_PORT } from '../../domain/ports/payment-status-checker.port';
 import { TRANSACTION_REPOSITORY } from '../../../transactions/domain/ports/transaction.repository.port';
 import { Transaction } from '../../../transactions/domain/entities/transaction.entity';
 import { TransactionStatus } from '../../../transactions/domain/enums/transaction-status.enum';
 import { PaymentStatus } from '../../domain/enums/payment-status.enum';
-import { PaymentStatusResponseDto } from '../dtos/payment-status-response.dto';
+import { PaymentStatusResponseDto } from '../../application/dtos/payment-status-response.dto';
 import { Result } from '../../../../shared/domain/result';
+import type { IPaymentStatusCheckerPort } from '../../domain/ports/payment-status-checker.port';
 
-describe('PaymentConfirmationService', () => {
-  let service: PaymentConfirmationService;
-  let paymentStatusChecker: jest.Mocked<PaymentStatusCheckerService>;
+describe('PaymentConfirmationAdapter', () => {
+  let adapter: PaymentConfirmationAdapter;
+  let paymentStatusChecker: jest.Mocked<IPaymentStatusCheckerPort>;
   let transactionRepository: jest.Mocked<any>;
 
   const mockDate = new Date('2024-01-09T10:00:00Z');
@@ -41,9 +42,9 @@ describe('PaymentConfirmationService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PaymentConfirmationService,
+        PaymentConfirmationAdapter,
         {
-          provide: PaymentStatusCheckerService,
+          provide: PAYMENT_STATUS_CHECKER_PORT,
           useValue: {
             checkPaymentStatusWithRetry: jest.fn(),
           },
@@ -57,13 +58,13 @@ describe('PaymentConfirmationService', () => {
       ],
     }).compile();
 
-    service = module.get<PaymentConfirmationService>(PaymentConfirmationService);
-    paymentStatusChecker = module.get(PaymentStatusCheckerService);
+    adapter = module.get<PaymentConfirmationAdapter>(PaymentConfirmationAdapter);
+    paymentStatusChecker = module.get(PAYMENT_STATUS_CHECKER_PORT);
     transactionRepository = module.get(TRANSACTION_REPOSITORY);
   });
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(adapter).toBeDefined();
   });
 
   describe('confirmAndUpdate', () => {
@@ -79,7 +80,7 @@ describe('PaymentConfirmationService', () => {
         mockTransaction.acceptanceToken,
         mockTransaction.acceptPersonalAuth,
         mockTransaction.paymentMethod,
-        undefined, // no wompiTransactionId
+        undefined,
         mockTransaction.redirectUrl,
         mockTransaction.paymentLinkId,
         mockTransaction.customerFullName,
@@ -91,7 +92,7 @@ describe('PaymentConfirmationService', () => {
         mockDate,
       );
 
-      const result = await service.confirmAndUpdate(transactionWithoutWompiId);
+      const result = await adapter.confirmAndUpdate(transactionWithoutWompiId);
 
       expect(result).toBe(transactionWithoutWompiId);
       expect(paymentStatusChecker.checkPaymentStatusWithRetry).not.toHaveBeenCalled();
@@ -107,7 +108,7 @@ describe('PaymentConfirmationService', () => {
 
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(failedStatusResponse);
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result).toBe(mockTransaction);
       expect(transactionRepository.update).not.toHaveBeenCalled();
@@ -126,7 +127,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(approvedStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.ok(updatedTransaction));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result.status).toBe(TransactionStatus.APPROVED);
       expect(paymentStatusChecker.checkPaymentStatusWithRetry).toHaveBeenCalledWith(
@@ -151,7 +152,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(declinedStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.ok(updatedTransaction));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result.status).toBe(TransactionStatus.DECLINED);
     });
@@ -169,7 +170,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(voidedStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.ok(updatedTransaction));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result.status).toBe(TransactionStatus.VOIDED);
     });
@@ -185,7 +186,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(approvedStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.fail(new Error('Update failed')));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result).toBe(mockTransaction);
     });
@@ -203,7 +204,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(pendingStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.ok(updatedTransaction));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result.status).toBe(TransactionStatus.PENDING);
     });
@@ -221,7 +222,7 @@ describe('PaymentConfirmationService', () => {
       paymentStatusChecker.checkPaymentStatusWithRetry.mockResolvedValue(errorStatusResponse);
       transactionRepository.update.mockResolvedValue(Result.ok(updatedTransaction));
 
-      const result = await service.confirmAndUpdate(mockTransaction);
+      const result = await adapter.confirmAndUpdate(mockTransaction);
 
       expect(result.status).toBe(TransactionStatus.ERROR);
     });

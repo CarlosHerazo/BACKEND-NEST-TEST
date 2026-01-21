@@ -1,18 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PaymentPreparationService } from './payment-preparation.service';
+import { PaymentPreparationAdapter } from './payment-preparation.adapter';
 import { WompiIntegrationService } from '../../../transactions/application/services/wompi-integration.service';
-import { PriceCalculatorService } from './price-calculator.service';
-import { ProcessPaymentDto } from '../dtos/process-payment.dto';
+import { PRICE_CALCULATOR_PORT } from '../../domain/ports/price-calculator.port';
+import { ProcessPaymentDto } from '../../application/dtos/process-payment.dto';
+import type { IPriceCalculatorPort } from '../../domain/ports/price-calculator.port';
 
-describe('PaymentPreparationService', () => {
-  let service: PaymentPreparationService;
+describe('PaymentPreparationAdapter', () => {
+  let adapter: PaymentPreparationAdapter;
   let wompiIntegrationService: jest.Mocked<WompiIntegrationService>;
-  let priceCalculatorService: jest.Mocked<PriceCalculatorService>;
+  let priceCalculator: jest.Mocked<IPriceCalculatorPort>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PaymentPreparationService,
+        PaymentPreparationAdapter,
         {
           provide: WompiIntegrationService,
           useValue: {
@@ -21,7 +22,7 @@ describe('PaymentPreparationService', () => {
           },
         },
         {
-          provide: PriceCalculatorService,
+          provide: PRICE_CALCULATOR_PORT,
           useValue: {
             calculateTotal: jest.fn(),
           },
@@ -29,13 +30,13 @@ describe('PaymentPreparationService', () => {
       ],
     }).compile();
 
-    service = module.get<PaymentPreparationService>(PaymentPreparationService);
+    adapter = module.get<PaymentPreparationAdapter>(PaymentPreparationAdapter);
     wompiIntegrationService = module.get(WompiIntegrationService);
-    priceCalculatorService = module.get(PriceCalculatorService);
+    priceCalculator = module.get(PRICE_CALCULATOR_PORT);
   });
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(adapter).toBeDefined();
   });
 
   describe('prepare', () => {
@@ -56,14 +57,14 @@ describe('PaymentPreparationService', () => {
     it('should prepare payment data successfully', async () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token-123');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token-123');
-      priceCalculatorService.calculateTotal.mockResolvedValue({
+      priceCalculator.calculateTotal.mockResolvedValue({
         subtotalInCents: 100000,
         discountInCents: 0,
         totalInCents: 100000,
         items: [],
       });
 
-      const result = await service.prepare(mockDto);
+      const result = await adapter.prepare(mockDto);
 
       expect(result).toHaveProperty('reference');
       expect(result.reference).toMatch(/^ORDER-\d+-[A-Z0-9]+$/);
@@ -78,15 +79,15 @@ describe('PaymentPreparationService', () => {
     it('should generate unique references', async () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
-      priceCalculatorService.calculateTotal.mockResolvedValue({
+      priceCalculator.calculateTotal.mockResolvedValue({
         subtotalInCents: 100000,
         discountInCents: 0,
         totalInCents: 100000,
         items: [],
       });
 
-      const result1 = await service.prepare(mockDto);
-      const result2 = await service.prepare(mockDto);
+      const result1 = await adapter.prepare(mockDto);
+      const result2 = await adapter.prepare(mockDto);
 
       expect(result1.reference).not.toBe(result2.reference);
     });
@@ -94,7 +95,7 @@ describe('PaymentPreparationService', () => {
     it('should default to COP when currency is not provided', async () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
-      priceCalculatorService.calculateTotal.mockResolvedValue({
+      priceCalculator.calculateTotal.mockResolvedValue({
         subtotalInCents: 100000,
         discountInCents: 0,
         totalInCents: 100000,
@@ -106,7 +107,7 @@ describe('PaymentPreparationService', () => {
         currency: undefined,
       };
 
-      const result = await service.prepare(dtoWithoutCurrency);
+      const result = await adapter.prepare(dtoWithoutCurrency);
 
       expect(result.currency).toBe('COP');
     });
@@ -116,7 +117,7 @@ describe('PaymentPreparationService', () => {
         new Error('Wompi service error'),
       );
 
-      await expect(service.prepare(mockDto)).rejects.toThrow('Wompi service error');
+      await expect(adapter.prepare(mockDto)).rejects.toThrow('Wompi service error');
     });
   });
 
@@ -139,8 +140,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // 399999 should round to 400000 (nearest 100)
-      const result = await service.prepareWithCalculatedAmount(mockDto, 399999);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 399999);
 
       expect(result.adjustedAmount).toBe(400000);
       expect(result.currency).toBe('COP');
@@ -150,8 +150,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // 399949 should round to 399900 (nearest 100)
-      const result = await service.prepareWithCalculatedAmount(mockDto, 399949);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 399949);
 
       expect(result.adjustedAmount).toBe(399900);
     });
@@ -160,7 +159,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      const result = await service.prepareWithCalculatedAmount(mockDto, 400000);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 400000);
 
       expect(result.adjustedAmount).toBe(400000);
     });
@@ -170,7 +169,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
       const usdDto: ProcessPaymentDto = { ...mockDto, currency: 'USD' };
-      const result = await service.prepareWithCalculatedAmount(usdDto, 12345);
+      const result = await adapter.prepareWithCalculatedAmount(usdDto, 12345);
 
       expect(result.adjustedAmount).toBe(12345);
       expect(result.currency).toBe('USD');
@@ -180,9 +179,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // If somehow a decimal amount arrives, it should be floored first
-      // 360000.5 -> floor to 360000 -> round to 360000
-      const result = await service.prepareWithCalculatedAmount(mockDto, 360000.5);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 360000.5);
 
       expect(result.adjustedAmount).toBe(360000);
     });
@@ -191,9 +188,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // Simulating: 399999 - 39999 (10% discount) = 360000
-      // 360000 rounds to 360000 (exact multiple of 100)
-      const result = await service.prepareWithCalculatedAmount(mockDto, 360000);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 360000);
 
       expect(result.adjustedAmount).toBe(360000);
     });
@@ -202,7 +197,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      const result = await service.prepareWithCalculatedAmount(mockDto, 359950);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 359950);
 
       expect(result.adjustedAmount).toBe(360000);
     });
@@ -211,7 +206,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      const result = await service.prepareWithCalculatedAmount(mockDto, 359949);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 359949);
 
       expect(result.adjustedAmount).toBe(359900);
     });
@@ -236,8 +231,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // 50 should round to 100
-      const result = await service.prepareWithCalculatedAmount(mockDto, 50);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 50);
 
       expect(result.adjustedAmount).toBe(100);
     });
@@ -246,8 +240,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // 49 should round to 0
-      const result = await service.prepareWithCalculatedAmount(mockDto, 49);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 49);
 
       expect(result.adjustedAmount).toBe(0);
     });
@@ -256,8 +249,7 @@ describe('PaymentPreparationService', () => {
       wompiIntegrationService.getAcceptanceToken.mockResolvedValue('acceptance-token');
       wompiIntegrationService.getPersonalAuthToken.mockResolvedValue('personal-auth-token');
 
-      // 9999999 should round to 10000000
-      const result = await service.prepareWithCalculatedAmount(mockDto, 9999950);
+      const result = await adapter.prepareWithCalculatedAmount(mockDto, 9999950);
 
       expect(result.adjustedAmount).toBe(10000000);
     });

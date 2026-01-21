@@ -1,21 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { WompiIntegrationService } from '../../../transactions/application/services/wompi-integration.service';
-import { ProcessPaymentDto } from '../dtos/process-payment.dto';
-import { PriceCalculatorService } from './price-calculator.service';
-
-export interface PreparedPaymentData {
-  reference: string;
-  adjustedAmount: number;
-  currency: string;
-  acceptanceToken: string;
-  personalAuthToken: string;
-}
+import { ProcessPaymentDto } from '../../application/dtos/process-payment.dto';
+import { PRICE_CALCULATOR_PORT } from '../../domain/ports/price-calculator.port';
+import type {
+  IPaymentPreparationPort,
+  PreparedPaymentData,
+} from '../../domain/ports/payment-preparation.port';
+import type { IPriceCalculatorPort } from '../../domain/ports/price-calculator.port';
 
 @Injectable()
-export class PaymentPreparationService {
+export class PaymentPreparationAdapter implements IPaymentPreparationPort {
   constructor(
     private readonly wompiIntegrationService: WompiIntegrationService,
-    private readonly priceCalculatorService: PriceCalculatorService,
+    @Inject(PRICE_CALCULATOR_PORT)
+    private readonly priceCalculator: IPriceCalculatorPort,
   ) {}
 
   async prepare(dto: ProcessPaymentDto): Promise<PreparedPaymentData> {
@@ -23,7 +21,7 @@ export class PaymentPreparationService {
       this.wompiIntegrationService.getAcceptanceToken(),
       this.wompiIntegrationService.getPersonalAuthToken(),
     ]);
-    const priceResult = await this.priceCalculatorService.calculateTotal(dto.products);
+    const priceResult = await this.priceCalculator.calculateTotal(dto.products);
     const currency = dto.currency || 'COP';
     const adjustedAmount = this.adjustAmount(priceResult.totalInCents, currency);
     return {
@@ -35,10 +33,6 @@ export class PaymentPreparationService {
     };
   }
 
-  /**
-   * Prepare payment data with a pre-calculated amount (calculated server-side)
-   * This is the secure method that should be used for production
-   */
   async prepareWithCalculatedAmount(
     dto: ProcessPaymentDto,
     calculatedAmountInCents: number,
@@ -66,16 +60,18 @@ export class PaymentPreparationService {
   }
 
   private adjustAmount(amount: number, currency?: string): number {
-    // Asegurar que sea entero sin decimales
     const intAmount = Math.floor(amount);
 
     if (currency === 'COP') {
-      // Redondear a múltiplos de 100 para COP (Wompi no acepta centavos)
       const adjusted = Math.round(intAmount / 100) * 100;
-      console.log(`[PaymentPreparationService] adjustAmount: input=${amount}, floored=${intAmount}, adjusted=${adjusted}, currency=${currency}`);
+      console.log(
+        `[PaymentPreparationAdapter] adjustAmount: input=${amount}, floored=${intAmount}, adjusted=${adjusted}, currency=${currency}`,
+      );
       return adjusted;
     }
-    console.log(`[PaymentPreparationService] adjustAmount: input=${amount}, floored=${intAmount}, currency=${currency}`);
+    console.log(
+      `[PaymentPreparationAdapter] adjustAmount: input=${amount}, floored=${intAmount}, currency=${currency}`,
+    );
     return intAmount;
   }
 }
