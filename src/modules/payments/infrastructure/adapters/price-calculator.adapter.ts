@@ -11,6 +11,7 @@ import {
   ProductItem,
   PriceCalculationResult,
 } from '../../domain/ports/price-calculator.port';
+import { addIva } from '../../../../shared/utils/iva-calculate';
 
 @Injectable()
 export class PriceCalculatorAdapter implements IPriceCalculatorPort {
@@ -79,12 +80,12 @@ export class PriceCalculatorAdapter implements IPriceCalculatorPort {
       }
     }
 
-    const totalInCents = subtotalInCents - discountInCents;
+    const totalWithoutVAT = subtotalInCents - discountInCents;
 
-    this.logger.log(
-      `Price calculation complete: subtotal=${subtotalInCents}, discount=${discountInCents}, total=${totalInCents}`,
-    );
+    const ivaCalculate = addIva(totalWithoutVAT);
 
+    const totalInCents = Math.floor(totalWithoutVAT + ivaCalculate);
+    
     return {
       subtotalInCents,
       discountInCents,
