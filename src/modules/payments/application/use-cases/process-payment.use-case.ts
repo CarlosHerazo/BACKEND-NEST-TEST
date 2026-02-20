@@ -43,6 +43,8 @@ export class ProcessPaymentUseCase {
         priceCalculation.totalInCents,
       );
 
+
+      
       // 3️ Crear transacción en base de datos y enviar payload a Wompi
       const transaction = await this.createTransaction(dto, preparedData, priceCalculation);
 

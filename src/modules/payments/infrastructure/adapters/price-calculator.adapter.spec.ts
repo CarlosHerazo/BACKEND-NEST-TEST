@@ -39,7 +39,7 @@ describe('PriceCalculatorAdapter', () => {
 
       expect(result.subtotalInCents).toBe(399999);
       expect(result.discountInCents).toBe(0);
-      expect(result.totalInCents).toBe(399999);
+      expect(result.totalInCents).toBe(475998); // Math.floor(399999 * 1.19) = 475998
       expect(result.items).toHaveLength(1);
       expect(result.items[0].unitPriceInCents).toBe(399999);
     });
@@ -68,7 +68,7 @@ describe('PriceCalculatorAdapter', () => {
 
       expect(result.subtotalInCents).toBe(400000);
       expect(result.discountInCents).toBe(40000);
-      expect(result.totalInCents).toBe(360000);
+      expect(result.totalInCents).toBe(428400); // Math.floor((400000 - 40000) * 1.19) = 428400
       expect(Number.isInteger(result.totalInCents)).toBe(true);
     });
 
@@ -95,7 +95,7 @@ describe('PriceCalculatorAdapter', () => {
       );
 
       expect(result.discountInCents).toBe(39999);
-      expect(result.totalInCents).toBe(360000);
+      expect(result.totalInCents).toBe(428400); // Math.floor((399999 - 39999) * 1.19) = Math.floor(360000 * 1.19) = 428400
       expect(Number.isInteger(result.totalInCents)).toBe(true);
     });
 
@@ -122,7 +122,7 @@ describe('PriceCalculatorAdapter', () => {
       );
 
       expect(result.discountInCents).toBe(59999);
-      expect(result.totalInCents).toBe(340000);
+      expect(result.totalInCents).toBe(404600); // Math.floor((399999 - 59999) * 1.19) = Math.floor(340000 * 1.19) = 404600
       expect(Number.isInteger(result.totalInCents)).toBe(true);
     });
 
@@ -151,7 +151,7 @@ describe('PriceCalculatorAdapter', () => {
 
       expect(result.subtotalInCents).toBe(250000);
       expect(result.discountInCents).toBe(50000);
-      expect(result.totalInCents).toBe(200000);
+      expect(result.totalInCents).toBe(238000); // Math.floor((250000 - 50000) * 1.19) = Math.floor(200000 * 1.19) = 238000
     });
 
     it('should throw error when product not found', async () => {
@@ -199,7 +199,7 @@ describe('PriceCalculatorAdapter', () => {
 
       expect(result.subtotalInCents).toBe(100000);
       expect(result.discountInCents).toBe(0);
-      expect(result.totalInCents).toBe(100000);
+      expect(result.totalInCents).toBe(119000); // Math.floor(100000 * 1.19) = 119000
       expect(result.discountCode).toBeUndefined();
     });
 
@@ -218,7 +218,7 @@ describe('PriceCalculatorAdapter', () => {
       ]);
 
       expect(result.items[0].unitPriceInCents).toBe(399999);
-      expect(result.totalInCents).toBe(399999);
+      expect(result.totalInCents).toBe(475998); // Math.floor(399999 * 1.19) = 475998
     });
   });
 });
