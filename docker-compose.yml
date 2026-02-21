@@ -37,18 +37,18 @@ services:
         required: true
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-3000}
+      PORT: ${PORT:-3002}
       DB_TYPE: postgres
       DB_HOST: postgres
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "${PORT:-3002}:${PORT:-3002}"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-3000}/${API_PREFIX:-api/v1} || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-3002}/${API_PREFIX:-api/v1} || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
