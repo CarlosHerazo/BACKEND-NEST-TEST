@@ -79,7 +79,7 @@ async function bootstrap() {
   // API Reference via Swagger UI
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
   logger.log(`API Reference (Scalar): http://localhost:${port}/api/reference`);
   logger.log(`API Docs (Swagger UI): http://localhost:${port}/api/docs`);
